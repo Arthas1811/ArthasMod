@@ -1348,13 +1348,13 @@ function applyCachedTimetable() {
     if (document.getElementById('isy-cached-timetable')) return;
 
     // Don't show cache if real content is already here
-    // Exclude our own overlay from this check using :not() is risky if implementation varies, 
-    // so we check for calendar items that are NOT inside our specific ID.
-    const realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
-        .filter(el => !el.closest('#isy-cached-timetable'));
-    if (realItems.length > 0) {
-        console.log("Isy Modernizer: Real content already present, skipping cache.");
-        return;
+    // Exclude our own overlay from this check.
+    const allItems = document.querySelectorAll('.calendar-week-element-inner');
+    for (const item of allItems) {
+        if (!item.closest('#isy-cached-timetable')) {
+            console.log("Isy Modernizer: Real content already present, skipping cache.");
+            return;
+        }
     }
 
     const overlayWeekKey = getOverlayWeekKey();
@@ -1375,8 +1375,15 @@ function startTimetableObserver() {
     timetableObserverStarted = true;
     ensureTimetableNavigationOverlayHandlers();
     let lastOverlayAttemptAt = 0;
+    let mutationDebounceTimeout = null;
+    let saveCacheTimeout = null;
 
-    const observer = new MutationObserver(() => {
+    const processTimetableMutation = () => {
+        if (mutationDebounceTimeout) {
+            window.clearTimeout(mutationDebounceTimeout);
+            mutationDebounceTimeout = null;
+        }
+
         if (!isArthasModeEnabled()) {
             removeCachedTimetableOverlay();
             return;
@@ -1403,11 +1410,17 @@ function startTimetableObserver() {
             }
         }
 
-        // 2. Check for Real Content Load
-        // Important: Filter out elements that are inside our cache overlay!
-        const realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
-            .filter(el => !el.closest('#isy-cached-timetable'));
-        const realScaffold = getRealTimetableScaffold();
+        const needsTimetableChecks = shouldShowTimetableOverlay() || !!overlay;
+        let realItems = [];
+        let realScaffold = null;
+
+        if (needsTimetableChecks) {
+            // 2. Check for Real Content Load
+            // Important: Filter out elements that are inside our cache overlay!
+            realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
+                .filter((el) => !el.closest('#isy-cached-timetable'));
+            realScaffold = getRealTimetableScaffold();
+        }
 
         // When re-opening the site, the first cache attempt can happen before the timetable mount exists.
         // Retry once the timetable shell appears, before the network data arrives.
@@ -1441,8 +1454,8 @@ function startTimetableObserver() {
         if (realScaffold && shouldShowTimetableOverlay()) {
             ensureTimetableNavigationOverlayHandlers();
 
-            if (!window.saveCacheTimeout) {
-                window.saveCacheTimeout = setTimeout(() => {
+            if (!saveCacheTimeout) {
+                saveCacheTimeout = window.setTimeout(() => {
                     const scaffold = getRealTimetableScaffold();
                     if (scaffold) {
                         const weekKey = saveScaffoldToWeekCache(scaffold);
@@ -1450,12 +1463,17 @@ function startTimetableObserver() {
                             console.log(`Isy Modernizer: Timetable cache updated for week ${weekKey}.`);
                         }
                     }
-                    window.saveCacheTimeout = null;
+                    saveCacheTimeout = null;
                 }, 900);
             }
 
             startBackgroundWeekPreloadIfReady();
         }
+    };
+
+    const observer = new MutationObserver(() => {
+        if (mutationDebounceTimeout) return;
+        mutationDebounceTimeout = window.setTimeout(processTimetableMutation, 120);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -1474,7 +1492,7 @@ function startTimetableObserver() {
         if (!shouldShowTimetableOverlay()) {
             removeCachedTimetableOverlay();
         }
-    }, 400);
+    }, 1000);
 }
 
 function initializeArthasFeatures() {
