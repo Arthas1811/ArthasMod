@@ -1,7 +1,195 @@
 console.log("ArthasMod: Costume Applied! 💅");
 
-// Add a marker class to body to ensure styles can scope if needed (though we used !important mostly)
-document.body.classList.add('ArthasMod-enabled');
+const ARTHAS_THEME_MODE_KEY = 'arthasmod-theme-mode';
+const ARTHAS_THEME_MODE = {
+    ISY: 'isy',
+    ARTHAS: 'arthas'
+};
+let arthasModeEnabled = true;
+let suppressThemeSelectionHandling = false;
+
+const ABSENCE_TABLE_FIX_STYLE_ID = 'arthasmod-absence-table-fix';
+const ARTHAS_BRIGHTNESS_STYLE_ID = 'arthasmod-lesson-brightness-style';
+const ARTHAS_LESSON_BRIGHTNESS_VAR = '--arthas-lesson-brightness';
+const ARTHAS_LESSON_BRIGHTNESS_VALUE_KEY = 'arthasmod-lesson-brightness-value';
+
+function ensureBaseAbsenceTableFixStyles() {
+    if (document.getElementById(ABSENCE_TABLE_FIX_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ABSENCE_TABLE_FIX_STYLE_ID;
+    style.textContent = `
+/* Absenz?bersicht: keep table aligned and symbols fitted in all themes */
+[data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn {
+    box-sizing: border-box !important;
+    grid-template-columns: minmax(12rem, 1.15fr) minmax(2.75rem, 0.45fr) repeat(6, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+}
+
+[data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn.w-full,
+[data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn.w-max {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+}
+
+[data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn > * {
+    min-width: 0 !important;
+}
+
+[data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn.w-full > :nth-child(2) {
+    margin-left: 0 !important;
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    justify-content: center !important;
+}
+
+[data-v-0eb0dee1] [data-type="absences"] .flex.w-full {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 1px !important;
+    min-width: 0 !important;
+}
+
+[data-v-0eb0dee1] [data-type="absences"] [data-message-iri] {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-width: 0.72rem !important;
+    max-width: 1.35rem !important;
+    min-height: 0.72rem !important;
+    aspect-ratio: 1 / 1 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+[data-v-0eb0dee1] [data-type="absences"] [data-message-iri] > div,
+[data-v-0eb0dee1] [data-type="absences"] [data-message-iri] > div > div {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+[data-v-0eb0dee1] [data-type="absences"] [data-message-iri] i,
+[data-v-0eb0dee1] [data-type="absences"] [data-message-iri] svg {
+    font-size: clamp(0.68rem, 0.95vw, 0.95rem) !important;
+    width: clamp(0.68rem, 0.95vw, 0.95rem) !important;
+    height: clamp(0.68rem, 0.95vw, 0.95rem) !important;
+}
+`;
+
+    (document.head || document.documentElement).appendChild(style);
+}
+
+function readThemeModePreference() {
+    try {
+        const value = localStorage.getItem(ARTHAS_THEME_MODE_KEY);
+        if (value === ARTHAS_THEME_MODE.ISY) return ARTHAS_THEME_MODE.ISY;
+        return ARTHAS_THEME_MODE.ARTHAS;
+    } catch {
+        return ARTHAS_THEME_MODE.ARTHAS;
+    }
+}
+
+function writeThemeModePreference(mode) {
+    try {
+        localStorage.setItem(ARTHAS_THEME_MODE_KEY, mode);
+    } catch {
+        // Ignore persistence errors.
+    }
+}
+
+const ARTHAS_STYLESHEET_ID = 'arthasmod-theme-styles';
+
+function findArthasExtensionStylesheets() {
+    const runtimeId = chrome.runtime?.id;
+    const targetHref = runtimeId ? `chrome-extension://${runtimeId}/styles.css` : '/styles.css';
+    const matches = [];
+
+    Array.from(document.styleSheets || []).forEach((sheet) => {
+        const href = sheet?.href || '';
+        if (href.includes(targetHref)) {
+            matches.push(sheet);
+        }
+    });
+
+    return matches;
+}
+
+function ensureArthasStylesheetNode() {
+    let node = document.getElementById(ARTHAS_STYLESHEET_ID);
+    if (node) return node;
+
+    node = document.createElement('link');
+    node.id = ARTHAS_STYLESHEET_ID;
+    node.rel = 'stylesheet';
+    node.href = chrome.runtime.getURL('styles.css');
+
+    (document.head || document.documentElement).appendChild(node);
+    return node;
+}
+
+function toggleArthasStylesheet(enabled) {
+    // Handle any existing stylesheet (including old auto-injected ones).
+    findArthasExtensionStylesheets().forEach((sheet) => {
+        try {
+            sheet.disabled = !enabled;
+        } catch {
+            // Ignore cross-origin/CSSOM edge cases.
+        }
+
+        const owner = sheet.ownerNode;
+        if (owner && 'disabled' in owner) {
+            owner.disabled = !enabled;
+        }
+    });
+
+    const injectedNode = ensureArthasStylesheetNode();
+    injectedNode.disabled = !enabled;
+}
+
+function removeArthasFooterDecorations() {
+    const footer = document.querySelector('.footer');
+    if (!footer) return;
+    footer.classList.remove('isy-footer-themed');
+    footer.querySelectorAll('.arthasmod-version').forEach((el) => el.remove());
+}
+
+function removeArthasTimetableClasses() {
+    const timetableClasses = [
+        'isy-tt-past-lesson',
+        'isy-tt-exam-text',
+        'isy-tt-canceled-task-text',
+        'isy-tt-canceled-text',
+        'isy-tt-absence-text',
+        'isy-tt-shifted-text',
+        'isy-tt-special-text'
+    ];
+
+    document.querySelectorAll('.calendar-week-element-inner').forEach((entry) => {
+        entry.classList.remove(...timetableClasses);
+    });
+}
+
+function isArthasModeEnabled() {
+    return arthasModeEnabled;
+}
+
+function applyArthasModeStateToDom(enabled) {
+    arthasModeEnabled = enabled;
+    if (document.body) {
+        document.body.classList.toggle('ArthasMod-enabled', enabled);
+    }
+    toggleArthasStylesheet(enabled);
+    if (!enabled) {
+        removeArthasFooterDecorations();
+        removeCachedTimetableOverlay();
+        removeArthasTimetableClasses();
+    }
+}
 
 // Optional: Add a subtle entry animation trigger for elements that load later
 const observer = new MutationObserver((mutations) => {
@@ -73,6 +261,28 @@ function getWeekKeyFromDates(dates) {
 
     const minDate = dates.reduce((min, current) => (current < min ? current : min), dates[0]);
     return formatDateAsWeekKey(getStartOfIsoWeek(minDate));
+}
+
+function parseWeekKey(weekKey) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weekKey || '');
+    if (!match) return null;
+
+    const year = Number.parseInt(match[1], 10);
+    const month = Number.parseInt(match[2], 10);
+    const day = Number.parseInt(match[3], 10);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+}
+
+function addWeeksToWeekKey(weekKey, deltaWeeks) {
+    const date = parseWeekKey(weekKey);
+    if (!date) return null;
+
+    date.setDate(date.getDate() + (deltaWeeks * 7));
+    return formatDateAsWeekKey(getStartOfIsoWeek(date));
 }
 
 function getDisplayedWeekStatus(headerColumns) {
@@ -190,8 +400,20 @@ function applyPastLessonClasses(entries) {
 }
 
 function applyTimetableClasses(entries) {
-    applyTimetableSpecialCaseClasses(entries);
-    applyPastLessonClasses(entries);
+    if (!isArthasModeEnabled()) return;
+
+    const safeEntries = Array.isArray(entries)
+        ? entries.filter((entry) => entry && typeof entry.closest === 'function')
+        : [];
+
+    if (safeEntries.length === 0) return;
+
+    try {
+        applyTimetableSpecialCaseClasses(safeEntries);
+        applyPastLessonClasses(safeEntries);
+    } catch (error) {
+        console.warn('Isy Modernizer: applyTimetableClasses failed.', error);
+    }
 }
 
 function applyTimetableSpecialCaseClasses(entries) {
@@ -282,6 +504,7 @@ function ensureTimetablePastRefresh() {
     if (timetablePastRefreshInterval !== null) return;
 
     timetablePastRefreshInterval = window.setInterval(() => {
+        if (!isArthasModeEnabled()) return;
         if (!window.location.href.includes('timetable')) return;
 
         const realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
@@ -306,11 +529,24 @@ let timetablePreloadPromise = null;
 let hasStartedPreloadInThisPage = false;
 
 function shouldShowTimetableOverlay() {
+    if (!isArthasModeEnabled()) return false;
+
     const href = window.location.href.toLowerCase();
+    let pathname = '';
+    try {
+        pathname = new URL(window.location.href).pathname.toLowerCase();
+    } catch {
+        pathname = '';
+    }
+
+    // Only allow overlay on the real timetable overview route to avoid flicker on other menu pages.
+    if (!/^\/timetable(\/overview)?\/?$/.test(pathname)) return false;
     if (!href.includes('timetable')) return false;
 
     // Do not show cached timetable overlay on entry/create/edit views.
     if (/(add|new|create|neu|erstellen|appointment|termin|erfassen|edit|bearbeiten)/.test(href)) return false;
+    // Do not show it on non-timetable sections that can live under timetable routes.
+    if (/(pruef|pruf|exam|absenz|absence|abwesen|uebersicht)/.test(href)) return false;
 
     // Extra safety for SPA states where URL is ambiguous but a form is already visible.
     if (document.querySelector('.form-container input, .form-container textarea, .form-container select')) return false;
@@ -323,7 +559,19 @@ function removeCachedTimetableOverlay() {
     if (overlay) overlay.remove();
 }
 
+function hasRealTimetableScaffoldOrMount() {
+    // Keep this strict to avoid matching non-week timetable-related shells on other pages.
+    const selectors = '.time-table-scaffold, .calendar-wrapper[data-view-type="week"], .day-view-scaffold';
+    return Array.from(document.querySelectorAll(selectors))
+        .some((el) => !el.closest('#isy-cached-timetable'));
+}
+
 function decorateFooter() {
+    if (!isArthasModeEnabled()) {
+        removeArthasFooterDecorations();
+        return;
+    }
+
     const footer = document.querySelector('.footer');
     if (!footer) return;
 
@@ -341,6 +589,349 @@ function decorateFooter() {
         versionEl.textContent = `ArthasMod v.${EXTENSION_VERSION}`;
         rightArea.prepend(versionEl);
     }
+}
+
+
+
+
+function applyNativeDarkPresetForArthas() {
+    const root = document.documentElement;
+    root.classList.add('dark');
+    root.setAttribute('theme', 'dark');
+
+    const darkInput = document.getElementById('settingsDarkMode');
+    const whiteInput = document.getElementById('settingsWhiteMode');
+    const darkLabel = document.querySelector('label[for="settingsDarkMode"]');
+
+    if (!darkInput) return;
+
+    suppressThemeSelectionHandling = true;
+    try {
+        if (whiteInput) {
+            whiteInput.checked = false;
+            whiteInput.dispatchEvent(new Event('input', { bubbles: true }));
+            whiteInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        darkInput.checked = true;
+        darkInput.dispatchEvent(new Event('input', { bubbles: true }));
+        darkInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Trigger the same path as native user interaction so ISY swaps all dark assets.
+        if (darkLabel) {
+            darkLabel.click();
+        }
+
+        applyDarkSliderPresetForArthas(true);
+    } finally {
+        suppressThemeSelectionHandling = false;
+    }
+}
+
+
+function getDisplayModeSlider() {
+    return document.querySelector('.display-mode-container .range-slider');
+}
+
+function readArthasLessonBrightnessSliderValue() {
+    try {
+        const value = localStorage.getItem(ARTHAS_LESSON_BRIGHTNESS_VALUE_KEY);
+        return value;
+    } catch {
+        return null;
+    }
+}
+
+function writeArthasLessonBrightnessSliderValue(value) {
+    try {
+        localStorage.setItem(ARTHAS_LESSON_BRIGHTNESS_VALUE_KEY, String(value));
+    } catch {
+        // Ignore persistence failures.
+    }
+}
+
+function applySavedArthasBrightnessToSlider(slider, emitEvents = false) {
+    if (!slider) return;
+
+    const saved = readArthasLessonBrightnessSliderValue();
+    const fallback = getArthasDarkSliderValue(slider);
+    const target = saved ?? fallback;
+
+    suppressThemeSelectionHandling = true;
+    try {
+        slider.value = String(target);
+        slider.setAttribute('value', String(target));
+        if (emitEvents) {
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            slider.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    } finally {
+        suppressThemeSelectionHandling = false;
+    }
+
+    setArthasLessonBrightnessFromSlider(slider);
+}
+
+function ensureArthasLessonBrightnessStyle() {
+    if (document.getElementById(ARTHAS_BRIGHTNESS_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ARTHAS_BRIGHTNESS_STYLE_ID;
+    style.textContent = `
+body.ArthasMod-enabled .calendar-week-element-inner,
+body.ArthasMod-enabled .calendar-week-element .calendar-week-element-inner {
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+body.ArthasMod-enabled .calendar-week-element-inner::after,
+body.ArthasMod-enabled .calendar-week-element .calendar-week-element-inner::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.46)) !important;
+    opacity: var(${ARTHAS_LESSON_BRIGHTNESS_VAR}, 0) !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+}
+`;
+
+    (document.head || document.documentElement).appendChild(style);
+}
+
+function setArthasLessonBrightnessFromSlider(slider) {
+    if (!slider) return;
+
+    const min = Number.parseFloat(slider.min || '0');
+    const max = Number.parseFloat(slider.max || '100');
+    const value = Number.parseFloat(slider.value || String(max));
+
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+        document.documentElement.style.setProperty(ARTHAS_LESSON_BRIGHTNESS_VAR, '1');
+        return;
+    }
+
+    writeArthasLessonBrightnessSliderValue(slider.value);
+
+    // Slider max keeps current colors (brightest). Lower values add darker overlay.
+    const normalized = Math.min(1, Math.max(0, (value - min) / (max - min)));
+    const darkenOpacity = 0.48 * (1 - normalized);
+    document.documentElement.style.setProperty(ARTHAS_LESSON_BRIGHTNESS_VAR, darkenOpacity.toFixed(3));
+}
+
+function getArthasDarkSliderValue(slider) {
+    if (!slider) return '100';
+    return slider.max || '100';
+}
+
+function applyDarkSliderPresetForArthas(emitEvents = true) {
+    const slider = getDisplayModeSlider();
+    if (!slider) return;
+
+    const targetValue = getArthasDarkSliderValue(slider);
+    if (String(slider.value) === String(targetValue)) return;
+
+    suppressThemeSelectionHandling = true;
+    try {
+        slider.value = targetValue;
+        slider.setAttribute('value', String(targetValue));
+        if (emitEvents) {
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+            slider.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    } finally {
+        suppressThemeSelectionHandling = false;
+    }
+}
+
+function scheduleArthasDarkPresetReapply() {
+    const delays = [0, 80, 220, 500, 1000];
+    delays.forEach((delay) => {
+        window.setTimeout(() => {
+            if (!isArthasModeEnabled()) return;
+            applyNativeDarkPresetForArthas();
+            applyDarkSliderPresetForArthas(true);
+        }, delay);
+    });
+}
+
+function syncArthasSliderLockState() {
+    const slider = getDisplayModeSlider();
+    if (!slider) return;
+
+    const arthasEnabled = isArthasModeEnabled();
+    slider.disabled = false;
+
+    if (arthasEnabled) {
+        slider.style.opacity = '';
+        slider.style.cursor = '';
+        slider.title = 'ArthasMod: Regelt die Helligkeit der Lektionen.';
+        applySavedArthasBrightnessToSlider(slider, false);
+    } else {
+        slider.style.opacity = '';
+        slider.style.cursor = '';
+        slider.title = '';
+        document.documentElement.style.setProperty(ARTHAS_LESSON_BRIGHTNESS_VAR, '1');
+    }
+}
+
+function setArthasModeEnabled(enabled, persist = true) {
+    if (enabled) {
+        // Force native dark mode first so ISY swaps non-customized assets.
+        applyNativeDarkPresetForArthas();
+    }
+
+    applyArthasModeStateToDom(enabled);
+
+    if (persist) {
+        writeThemeModePreference(enabled ? ARTHAS_THEME_MODE.ARTHAS : ARTHAS_THEME_MODE.ISY);
+    }
+
+    if (enabled) {
+        const slider = getDisplayModeSlider();
+        applySavedArthasBrightnessToSlider(slider, true);
+        initializeArthasFeatures();
+    } else {
+        document.documentElement.style.setProperty(ARTHAS_LESSON_BRIGHTNESS_VAR, '1');
+    }
+
+    syncArthasModeOptionState();
+    syncArthasSliderLockState();
+}
+
+function buildArthasModeOption() {
+    const template = document.querySelector('#settingsDarkMode')?.closest('.radio-button-container.display-radio')
+        || document.querySelector('#settingsWhiteMode')?.closest('.radio-button-container.display-radio');
+
+    const wrapper = template ? template.cloneNode(true) : document.createElement('div');
+    if (!template) {
+        wrapper.className = 'radio-button-container display-radio ml-2';
+        wrapper.innerHTML = '<label class="radio-button" for="settingsArthasMode" tabindex="0"><div class="circle-container mr-1"><div class="outer-circle"><div class="inner-circle"></div></div></div><span>ArthasMod</span></label><input id="settingsArthasMode" type="radio" hidden="" name="settingsDisplayMode">';
+    }
+
+    wrapper.classList.add('arthasmod-theme-option');
+    wrapper.classList.remove('mr-2');
+    wrapper.classList.add('ml-2');
+
+    const label = wrapper.querySelector('label.radio-button');
+    if (label) {
+        label.setAttribute('for', 'settingsArthasMode');
+        label.setAttribute('tabindex', '0');
+
+        const spanCandidates = Array.from(label.querySelectorAll('span'));
+        const textSpan = spanCandidates[spanCandidates.length - 1];
+        if (textSpan) textSpan.textContent = 'ArthasMod';
+    }
+
+    const input = wrapper.querySelector('input[type="radio"]') || document.createElement('input');
+    input.id = 'settingsArthasMode';
+    input.type = 'radio';
+    input.hidden = true;
+    input.name = 'settingsDisplayMode';
+    input.checked = false;
+
+    if (!input.parentElement) {
+        wrapper.appendChild(input);
+    }
+
+    const innerCircle = wrapper.querySelector('.inner-circle');
+    if (innerCircle) {
+        innerCircle.style.background = 'var(--primary-color)';
+        innerCircle.style.display = 'none';
+    }
+
+    return wrapper;
+}
+
+function syncArthasModeOptionState() {
+    const arthasInput = document.getElementById('settingsArthasMode');
+    if (!arthasInput) return;
+
+    const arthasEnabled = isArthasModeEnabled();
+    arthasInput.checked = arthasEnabled;
+
+    const arthasInnerCircle = arthasInput
+        .closest('.arthasmod-theme-option')
+        ?.querySelector('.inner-circle');
+    if (arthasInnerCircle) {
+        arthasInnerCircle.style.display = arthasEnabled ? '' : 'none';
+    }
+
+    // Prevent double-selected visuals: hide native mode dots while Arthas mode is active.
+    const nativeModeDots = document.querySelectorAll(
+        'label[for="settingsWhiteMode"] .inner-circle, label[for="settingsDarkMode"] .inner-circle'
+    );
+    nativeModeDots.forEach((dot) => {
+        dot.style.display = arthasEnabled ? 'none' : '';
+    });
+
+    syncArthasSliderLockState();
+}
+
+function ensureArthasModeOption() {
+    const modeRow = document.querySelector('.settings-container .display-mode-container .flex.items-center.mb-4')
+        || document.querySelector('.display-mode-container .flex.items-center.mb-4')
+        || document.querySelector('.display-mode-container > .flex.items-center');
+    if (!modeRow) return;
+
+    if (!modeRow.querySelector('.arthasmod-theme-option')) {
+        modeRow.appendChild(buildArthasModeOption());
+    }
+
+    syncArthasModeOptionState();
+}
+
+function handleThemeModeSelectionEvent(event) {
+    if (suppressThemeSelectionHandling) return;
+
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    if (target.closest('#settingsArthasMode, .arthasmod-theme-option label')) {
+        setArthasModeEnabled(true, true);
+        return;
+    }
+
+    if (target.closest('#settingsWhiteMode, #settingsDarkMode, label[for="settingsWhiteMode"], label[for="settingsDarkMode"]')) {
+        setArthasModeEnabled(false, true);
+        return;
+    }
+
+    if (target.matches('.display-mode-container .range-slider') || target.closest('.display-mode-container .range-slider')) {
+        if (isArthasModeEnabled()) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            const slider = target.closest('.display-mode-container .range-slider') || target;
+            if (slider && typeof slider.value !== 'undefined') {
+                setArthasLessonBrightnessFromSlider(slider);
+            }
+        }
+        return;
+    }
+}
+
+function startArthasModeOptionObserver() {
+    ensureArthasModeOption();
+
+    document.addEventListener('click', handleThemeModeSelectionEvent, true);
+    document.addEventListener('change', handleThemeModeSelectionEvent, true);
+    document.addEventListener('input', handleThemeModeSelectionEvent, true);
+
+    const modeObserver = new MutationObserver(() => {
+        ensureArthasModeOption();
+    });
+
+    if (document.body) {
+        modeObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // Fallback for views that reuse hidden DOM without mutation events.
+    window.setInterval(() => {
+        ensureArthasModeOption();
+        if (isArthasModeEnabled()) {
+            setArthasLessonBrightnessFromSlider(getDisplayModeSlider());
+        }
+    }, 1000);
 }
 
 function getRealTimetableScaffold() {
@@ -437,6 +1028,50 @@ function getCachedWeekHtml(weekKey) {
     if ((Date.now() - legacyTimestamp) >= MAX_CACHE_AGE_MS) return null;
 
     return legacyHtml;
+}
+
+function createCachedOverlayElement(weekKey, html) {
+    const overlay = document.createElement('div');
+    overlay.id = 'isy-cached-timetable';
+    overlay.dataset.weekKey = weekKey;
+    overlay.style.position = 'fixed';
+    overlay.style.top = '64px';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = 'calc(100vh - 64px)';
+    overlay.style.zIndex = '99999';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.opacity = '1.0';
+    overlay.style.backgroundColor = 'var(--isy-bg-gradient, #1a1b1a)';
+    overlay.style.filter = 'grayscale(0.2)';
+    overlay.style.overflow = 'hidden';
+    overlay.innerHTML = html;
+    overlay.querySelectorAll('.tts-header, .day-header-container, .week-header-row, .time-strip-toggle-container')
+        .forEach((el) => el.remove());
+    return overlay;
+}
+
+function renderCachedWeekOverlay(weekKey, html) {
+    if (!html || !weekKey) return false;
+
+    const existing = document.getElementById('isy-cached-timetable');
+    if (existing) {
+        existing.replaceWith(createCachedOverlayElement(weekKey, html));
+    } else {
+        document.body.appendChild(createCachedOverlayElement(weekKey, html));
+    }
+
+    return true;
+}
+
+function showCachedWeekOverlay(weekKey) {
+    if (!shouldShowTimetableOverlay()) return false;
+    if (!weekKey) return false;
+
+    const html = getCachedWeekHtml(weekKey);
+    if (!html) return false;
+
+    return renderCachedWeekOverlay(weekKey, html);
 }
 
 function createCacheHtmlFromScaffold(scaffold) {
@@ -567,6 +1202,59 @@ function getTimetableNavigationButton(direction) {
     return getClickableAncestor(icon);
 }
 
+function getDisplayedWeekKeyForNavigation() {
+    const overlayWeekKey = document.getElementById('isy-cached-timetable')?.dataset?.weekKey;
+    if (overlayWeekKey) return overlayWeekKey;
+
+    const realWeekKey = getWeekKeyFromScaffold(getRealTimetableScaffold());
+    return realWeekKey || getCurrentWeekKey();
+}
+
+function handleTimetableNavigationOverlay(direction) {
+    if (!shouldShowTimetableOverlay()) return;
+
+    const baseWeekKey = getDisplayedWeekKeyForNavigation();
+    if (!baseWeekKey) return;
+
+    let targetWeekKey = baseWeekKey;
+    if (direction === 'previous') {
+        targetWeekKey = addWeeksToWeekKey(baseWeekKey, -1) || targetWeekKey;
+    } else if (direction === 'next') {
+        targetWeekKey = addWeeksToWeekKey(baseWeekKey, 1) || targetWeekKey;
+    } else if (direction === 'current') {
+        targetWeekKey = getCurrentWeekKey();
+    }
+
+    showCachedWeekOverlay(targetWeekKey);
+}
+
+function ensureTimetableNavigationOverlayHandlers() {
+    const previousButton = getTimetableNavigationButton('previous');
+    const nextButton = getTimetableNavigationButton('next');
+    const currentButton = getTimetableCurrentWeekButton();
+
+    if (previousButton && !previousButton.dataset.arthasOverlayNavBound) {
+        previousButton.dataset.arthasOverlayNavBound = '1';
+        previousButton.addEventListener('click', () => {
+            handleTimetableNavigationOverlay('previous');
+        }, true);
+    }
+
+    if (nextButton && !nextButton.dataset.arthasOverlayNavBound) {
+        nextButton.dataset.arthasOverlayNavBound = '1';
+        nextButton.addEventListener('click', () => {
+            handleTimetableNavigationOverlay('next');
+        }, true);
+    }
+
+    if (currentButton && !currentButton.dataset.arthasOverlayNavBound) {
+        currentButton.dataset.arthasOverlayNavBound = '1';
+        currentButton.addEventListener('click', () => {
+            handleTimetableNavigationOverlay('current');
+        }, true);
+    }
+}
+
 async function clickAndCacheWeek(button, mode = 'change', targetWeekKey = null) {
     if (!button) return getWeekKeyFromScaffold(getRealTimetableScaffold());
 
@@ -648,9 +1336,13 @@ function startBackgroundWeekPreloadIfReady() {
 }
 
 function applyCachedTimetable() {
+    if (!isArthasModeEnabled()) return;
+
     console.log("Isy Modernizer: Checking cache for timetable...");
     // Only run on the main timetable view
     if (!shouldShowTimetableOverlay()) return;
+    // Avoid showing cached overlay on non-timetable page shells during SPA transitions.
+    if (!hasRealTimetableScaffoldOrMount()) return;
 
     // Avoid double overlay
     if (document.getElementById('isy-cached-timetable')) return;
@@ -668,37 +1360,28 @@ function applyCachedTimetable() {
     const overlayWeekKey = getOverlayWeekKey();
     const cachedHTML = getCachedWeekHtml(overlayWeekKey);
 
-    if (cachedHTML) {
-        // Appending to body is safest for "loading screen" effect
-        const overlay = document.createElement('div');
-        overlay.id = 'isy-cached-timetable';
-        overlay.dataset.weekKey = overlayWeekKey;
-        overlay.style.position = 'fixed'; // Fixed to cover viewport even if scrolled
-        overlay.style.top = '64px'; // Offset for navbar (approx)
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = 'calc(100vh - 64px)';
-        overlay.style.zIndex = '99999'; // FORCE on top
-        overlay.style.pointerEvents = 'none'; // Click through
-        overlay.style.opacity = '1.0'; // Fully opaque to hide the spinner underneath
-        overlay.style.backgroundColor = 'var(--isy-bg-gradient, #1a1b1a)'; // Match theme background
-        overlay.style.filter = 'grayscale(0.2)'; // Slight visual cue it's cached, or just clean
-        overlay.style.overflow = 'hidden';
-
-        overlay.innerHTML = cachedHTML;
-        // Never show duplicated header/navigation rows in cached overlay.
-        overlay.querySelectorAll('.tts-header, .day-header-container, .week-header-row, .time-strip-toggle-container')
-            .forEach((el) => el.remove());
-        document.body.appendChild(overlay);
+    if (cachedHTML && renderCachedWeekOverlay(overlayWeekKey, cachedHTML)) {
         console.log(`Isy Modernizer: Cached timetable applied for week ${overlayWeekKey}.`);
     }
 }
 
 // Global state to track URL (path + query + hash for SPA routes)
 let currentUrl = window.location.href;
+let timetableObserverStarted = false;
+let arthasModeObserverStarted = false;
 
 function startTimetableObserver() {
+    if (timetableObserverStarted) return;
+    timetableObserverStarted = true;
+    ensureTimetableNavigationOverlayHandlers();
+    let lastOverlayAttemptAt = 0;
+
     const observer = new MutationObserver(() => {
+        if (!isArthasModeEnabled()) {
+            removeCachedTimetableOverlay();
+            return;
+        }
+
         decorateFooter();
 
         const overlay = document.getElementById('isy-cached-timetable');
@@ -726,10 +1409,28 @@ function startTimetableObserver() {
             .filter(el => !el.closest('#isy-cached-timetable'));
         const realScaffold = getRealTimetableScaffold();
 
-        // As soon as the real timetable scaffold exists, remove the cache overlay
-        // to avoid duplicated weekday/menu bars during week or mode switches.
-        if (realScaffold) {
-            removeCachedTimetableOverlay();
+        // When re-opening the site, the first cache attempt can happen before the timetable mount exists.
+        // Retry once the timetable shell appears, before the network data arrives.
+        if (!overlay && shouldShowTimetableOverlay() && hasRealTimetableScaffoldOrMount() && realItems.length === 0) {
+            const now = Date.now();
+            if ((now - lastOverlayAttemptAt) > 300) {
+                lastOverlayAttemptAt = now;
+                try {
+                    applyCachedTimetable();
+                } catch (error) {
+                    console.warn('Isy Modernizer: applyCachedTimetable failed during scaffold retry.', error);
+                }
+            }
+        }
+
+        // Remove the overlay only when the real scaffold matches the overlay week.
+        // This keeps cached content visible during week switches and offline mode.
+        if (overlay && realScaffold) {
+            const overlayWeekKey = overlay.dataset.weekKey || null;
+            const realWeekKey = getWeekKeyFromScaffold(realScaffold);
+            if (!overlayWeekKey || !realWeekKey || overlayWeekKey === realWeekKey) {
+                removeCachedTimetableOverlay();
+            }
         }
 
         if (realItems.length > 0) {
@@ -738,6 +1439,8 @@ function startTimetableObserver() {
 
         // 3. Update Cache (Debounced)
         if (realScaffold && shouldShowTimetableOverlay()) {
+            ensureTimetableNavigationOverlayHandlers();
+
             if (!window.saveCacheTimeout) {
                 window.saveCacheTimeout = setTimeout(() => {
                     const scaffold = getRealTimetableScaffold();
@@ -759,6 +1462,11 @@ function startTimetableObserver() {
 
     // URL watchdog: some SPA transitions don't trigger a useful mutation immediately.
     window.setInterval(() => {
+        if (!isArthasModeEnabled()) {
+            removeCachedTimetableOverlay();
+            return;
+        }
+
         if (window.location.href !== currentUrl) {
             currentUrl = window.location.href;
         }
@@ -769,22 +1477,50 @@ function startTimetableObserver() {
     }, 400);
 }
 
-// Initialize
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+function initializeArthasFeatures() {
+    if (!isArthasModeEnabled()) return;
+
+    try {
         decorateFooter();
         applyCachedTimetable();
         startTimetableObserver();
-        applyTimetableClasses(Array.from(document.querySelectorAll('.calendar-week-element-inner')));
+
+        // Defer initial timetable decoration until after current render tick.
+        window.setTimeout(() => {
+            if (!isArthasModeEnabled()) return;
+            applyTimetableClasses(Array.from(document.querySelectorAll('.calendar-week-element-inner')));
+        }, 0);
+
         ensureTimetablePastRefresh();
         chrome.runtime.sendMessage({ action: 'SYNC_THEME' });
-    });
+    } catch (error) {
+        console.warn('Isy Modernizer: initializeArthasFeatures failed.', error);
+    }
+}
+
+function initializeThemeMode() {
+    const mode = readThemeModePreference();
+    applyArthasModeStateToDom(mode !== ARTHAS_THEME_MODE.ISY);
+}
+
+function bootstrapArthasMod() {
+    ensureBaseAbsenceTableFixStyles();
+    ensureArthasLessonBrightnessStyle();
+
+    if (!arthasModeObserverStarted) {
+        arthasModeObserverStarted = true;
+        startArthasModeOptionObserver();
+    }
+
+    if (isArthasModeEnabled()) {
+        initializeArthasFeatures();
+    }
+}
+
+// Initialize
+initializeThemeMode();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapArthasMod);
 } else {
-    decorateFooter();
-    applyCachedTimetable();
-    startTimetableObserver();
-    applyTimetableClasses(Array.from(document.querySelectorAll('.calendar-week-element-inner')));
-    ensureTimetablePastRefresh();
-    // Trigger preference sync
-    chrome.runtime.sendMessage({ action: 'SYNC_THEME' });
+    bootstrapArthasMod();
 }
