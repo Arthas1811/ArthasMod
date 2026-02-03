@@ -1,1 +1,0 @@
-import{bO as n,r,U as e}from"./index_3.11.0.22--2602021337_b7dc42e999.js";function a(a){const t=n({dir:r("ltr")});return e((()=>a?.value||t.dir?.value||"ltr"))}function t(a){const t=n({nonce:r()});return e((()=>a?.value||t.nonce?.value))}export{t as a,a as u};
