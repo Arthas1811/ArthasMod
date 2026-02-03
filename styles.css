@@ -17,7 +17,7 @@ html.dark {
     --glass-border: 1px solid rgba(72, 93, 126, 0.16);
     --isy-border-subtle: rgba(70, 92, 126, 0.13);
     --backdrop-blur: blur(12px);
-    --isy-header-bg: rgba(2, 4, 10, 0.88);
+    --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
     --isy-input-bg: rgba(9, 13, 25, 0.8);
     --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
     --isy-panel-bg: rgba(10, 14, 26, 0.86);
@@ -83,7 +83,7 @@ html.dark {
     --glass-border: 1px solid rgba(72, 93, 126, 0.16);
     --isy-shadow-sm: 0 12px 30px -20px rgba(0, 0, 0, 0.9);
     --isy-shadow-hover: 0 18px 35px -18px rgba(16, 44, 94, 0.95), 0 14px 24px -14px rgba(0, 0, 0, 0.92);
-    --isy-header-bg: rgba(2, 4, 10, 0.88);
+    --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
     --isy-input-bg: rgba(9, 13, 25, 0.8);
     --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
 }
@@ -98,7 +98,7 @@ html.dark {
         --glass-border: 1px solid rgba(72, 93, 126, 0.16);
         --isy-shadow-sm: 0 12px 30px -20px rgba(0, 0, 0, 0.9);
         --isy-shadow-hover: 0 18px 35px -18px rgba(16, 44, 94, 0.95), 0 14px 24px -14px rgba(0, 0, 0, 0.92);
-        --isy-header-bg: rgba(2, 4, 10, 0.88);
+        --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
         --isy-input-bg: rgba(9, 13, 25, 0.8);
         --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
     }
@@ -151,7 +151,7 @@ body {
 
 .navbar-button .text-lg {
     font-weight: 600 !important;
-    font-size: 0.95rem !important;
+    font-size: 1.12rem !important;
     color: var(--isy-text-dark) !important;
 }
 
@@ -1113,7 +1113,7 @@ body,
 .calendar-week-element-inner.calendar-coloring[style*="144, 172, 47"],
 .calendar-week-element-inner.calendar-coloring[style*="144,172,47"],
 .calendar-week-element-inner[class*="tt-lesson-normal"] {
-    background: linear-gradient(145deg, rgba(18, 50, 95, 0.98), rgba(29, 78, 145, 0.95)) !important;
+    background: linear-gradient(145deg, rgba(11, 34, 70, 0.98), rgba(21, 58, 110, 0.95)) !important;
     border: 1px solid rgba(133, 178, 244, 0.55) !important;
     color: #e7f1ff !important;
 }
@@ -1258,7 +1258,7 @@ body,
 
 /* Legend remap (same order as ISY list) */
 .color-key-popup .color-key-list .color-key-element:nth-child(1) .color {
-    background: linear-gradient(145deg, rgba(18, 50, 95, 0.98), rgba(29, 78, 145, 0.95)) !important;
+    background: linear-gradient(145deg, rgba(11, 34, 70, 0.98), rgba(21, 58, 110, 0.95)) !important;
 }
 
 .color-key-popup .color-key-list .color-key-element:nth-child(2) .color {
@@ -1708,4 +1708,23 @@ body.ArthasMod-enabled .priority__circle.circle--filled-exception[data-v-83289ac
 /* Remove gap under top header block */
 body.ArthasMod-enabled .header {
     margin-bottom: 0 !important;
+}
+
+
+/* Split header and timetable menu with distinct gradients */
+body.ArthasMod-enabled .header-top {
+    background: linear-gradient(180deg, rgba(7, 17, 34, 0.97), rgba(10, 22, 44, 0.93)) !important;
+}
+
+body.ArthasMod-enabled .header-bottom {
+    background: linear-gradient(180deg, rgba(11, 26, 50, 0.96), rgba(14, 32, 58, 0.93)) !important;
+    border-top: 1px solid rgba(66, 93, 132, 0.24) !important;
+    border-bottom: 1px solid rgba(55, 82, 119, 0.20) !important;
+}
+
+
+/* Top menu: subtle bottom border + soft glow */
+body.ArthasMod-enabled .header-bottom {
+    border-bottom: 1px solid rgba(96, 136, 196, 0.32) !important;
+    box-shadow: 0 1px 0 rgba(132, 170, 228, 0.16), 0 8px 18px -16px rgba(88, 132, 196, 0.55) !important;
 }
