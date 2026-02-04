@@ -1,4 +1,4 @@
-console.log("ArthasMod: Costume Applied! 💅");
+console.log("ArthasMod: Costume Applied!");
 
 const ARTHAS_THEME_MODE_KEY = 'arthasmod-theme-mode';
 const ARTHAS_THEME_MODE = {
