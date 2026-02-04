@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
 :root,
 :root[theme=light],
@@ -1611,6 +1611,23 @@ body.ArthasMod-enabled .header-bottom {
 
 
 /* Absence/appointment preview cards: darken bright gray reservation-like entries */
+body.ArthasMod-enabled .appointment-preview,
+body.ArthasMod-enabled .appointment-preview.calendar-coloring {
+    --background: 220 46% 11% !important;
+    background: linear-gradient(150deg, rgba(9, 16, 30, 0.98), rgba(13, 24, 44, 0.96)) !important;
+    background-color: rgba(10, 18, 34, 0.97) !important;
+    border: 1px solid rgba(108, 143, 198, 0.34) !important;
+    box-shadow: 0 16px 34px -18px rgba(2, 7, 15, 0.95) !important;
+    color: #e4eeff !important;
+}
+
+body.ArthasMod-enabled .appointment-preview *,
+body.ArthasMod-enabled .appointment-preview .text-xl,
+body.ArthasMod-enabled .appointment-preview p,
+body.ArthasMod-enabled .appointment-preview span,
+body.ArthasMod-enabled .appointment-preview div {
+    color: #e4eeff !important;
+}
 body.ArthasMod-enabled .appointment-preview.calendar-coloring[style*="211, 211, 211"],
 body.ArthasMod-enabled .appointment-preview.calendar-coloring[style*="211,211,211"] {
     background: linear-gradient(145deg, rgba(58, 66, 80, 0.96), rgba(76, 86, 104, 0.93)) !important;
@@ -1807,4 +1824,21 @@ body.ArthasMod-enabled [data-v-cab99d68] .flex.print\:hidden > div {
     align-items: center !important;
     justify-content: center !important;
     height: 2.7rem !important;
+}
+
+
+/* Timetable hover tooltip (tippy) */
+body.ArthasMod-enabled .tippy-box[data-theme~="isy"] {
+    background: linear-gradient(150deg, rgba(9, 16, 30, 0.98), rgba(13, 24, 44, 0.96)) !important;
+    border: 1px solid rgba(108, 143, 198, 0.36) !important;
+    color: #e6efff !important;
+    box-shadow: 0 16px 34px -18px rgba(2, 7, 15, 0.95) !important;
+}
+
+body.ArthasMod-enabled .tippy-box[data-theme~="isy"] .tippy-content {
+    color: #e6efff !important;
+}
+
+body.ArthasMod-enabled .tippy-box[data-theme~="isy"] > .tippy-arrow {
+    color: rgba(11, 20, 37, 0.98) !important;
 }
