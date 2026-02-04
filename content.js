@@ -169,7 +169,7 @@ function removeArthasTimetableClasses() {
         'isy-tt-special-text'
     ];
 
-    document.querySelectorAll('.calendar-week-element-inner').forEach((entry) => {
+    document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR).forEach((entry) => {
         entry.classList.remove(...timetableClasses);
     });
 }
@@ -323,12 +323,12 @@ function getCurrentTimePercent() {
 
 function applyPastLessonClasses(entries) {
     const allDayColumns = Array.from(document.querySelectorAll('.day-all-container .day-all-column, .day-all-container .calendar-week-day'))
-        .filter((column) => !column.closest('#isy-cached-timetable'));
+        .filter((column) => !isInsideCachedTimetableOverlay(column));
     const headerColumns = Array.from(document.querySelectorAll('.day-header-container .calendar-week-day'))
-        .filter((column) => !column.closest('#isy-cached-timetable'));
+        .filter((column) => !isInsideCachedTimetableOverlay(column));
     const dayColumns = Array.from(document.querySelectorAll('.day-container .calendar-week-day'))
         .filter((column) => !column.classList.contains('calendar-week-day--all-day'))
-        .filter((column) => !column.closest('#isy-cached-timetable'));
+        .filter((column) => !isInsideCachedTimetableOverlay(column));
     const currentTimePercent = getCurrentTimePercent();
     const weekStatus = getDisplayedWeekStatus(headerColumns);
 
@@ -507,8 +507,8 @@ function ensureTimetablePastRefresh() {
         if (!isArthasModeEnabled()) return;
         if (!window.location.href.includes('timetable')) return;
 
-        const realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
-            .filter((el) => !el.closest('#isy-cached-timetable'));
+        const realItems = Array.from(document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR))
+            .filter((el) => !isInsideCachedTimetableOverlay(el));
         if (realItems.length > 0) {
             applyPastLessonClasses(realItems);
         }
@@ -521,12 +521,13 @@ const TIMETABLE_CACHE_STORE_KEY = 'isy-timetable-week-cache-v2';
 const LEGACY_CACHE_KEY = 'isy-timetable-cache';
 const LEGACY_CACHE_TIMESTAMP_KEY = 'isy-timetable-timestamp';
 const MAX_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const PRELOAD_PREVIOUS_WEEKS = 2;
-const PRELOAD_NEXT_WEEKS = 3;
+const PRELOAD_PREVIOUS_WEEKS = 5;
+const PRELOAD_NEXT_WEEKS = 5;
 const EXTENSION_VERSION = chrome.runtime?.getManifest?.().version || 'dev';
 
 let timetablePreloadPromise = null;
-let hasStartedPreloadInThisPage = false;
+let activePreloadAnchorWeekKey = null;
+let lastPreloadedAnchorWeekKey = null;
 
 function shouldShowTimetableOverlay() {
     if (!isArthasModeEnabled()) return false;
@@ -560,10 +561,8 @@ function removeCachedTimetableOverlay() {
 }
 
 function hasRealTimetableScaffoldOrMount() {
-    // Keep this strict to avoid matching non-week timetable-related shells on other pages.
-    const selectors = '.time-table-scaffold, .calendar-wrapper[data-view-type="week"], .day-view-scaffold';
-    return Array.from(document.querySelectorAll(selectors))
-        .some((el) => !el.closest('#isy-cached-timetable'));
+    return Array.from(document.querySelectorAll(TIMETABLE_SCOPE_SELECTOR))
+        .some((el) => !isInsideCachedTimetableOverlay(el));
 }
 
 function decorateFooter() {
@@ -934,9 +933,78 @@ function startArthasModeOptionObserver() {
     }, 1000);
 }
 
+const TIMETABLE_OVERLAY_SELECTOR = '#isy-cached-timetable';
+const TIMETABLE_ENTRY_SELECTOR = '.calendar-week-element-inner';
+const TIMETABLE_SCOPE_SELECTOR = '.time-table-scaffold, .calendar-wrapper[data-view-type="week"], .day-view-scaffold';
+const TIMETABLE_STRUCTURE_SELECTOR = `${TIMETABLE_SCOPE_SELECTOR}, .day-container, .day-header-container, .day-all-container, .tts-header, .current-week-button`;
+const TIMETABLE_MUTATION_TARGET_SELECTOR = `${TIMETABLE_ENTRY_SELECTOR}, .calendar-week-element, ${TIMETABLE_STRUCTURE_SELECTOR}`;
+
+function isInsideCachedTimetableOverlay(element) {
+    return Boolean(element?.closest?.(TIMETABLE_OVERLAY_SELECTOR));
+}
+
+function collectTimetableEntriesFromNode(node, targetSet) {
+    if (!(node instanceof Element)) return;
+
+    if (node.matches(TIMETABLE_ENTRY_SELECTOR) && !isInsideCachedTimetableOverlay(node)) {
+        targetSet.add(node);
+    }
+
+    node.querySelectorAll?.(TIMETABLE_ENTRY_SELECTOR).forEach((entry) => {
+        if (!isInsideCachedTimetableOverlay(entry)) {
+            targetSet.add(entry);
+        }
+    });
+}
+
+function collectTimetableMutationInfo(mutations) {
+    const entrySet = new Set();
+    let touchesTimetable = false;
+    let hasStructureChange = false;
+
+    for (const mutation of mutations) {
+        if (!mutation) continue;
+
+        const targetElement = mutation.target instanceof Element
+            ? mutation.target
+            : mutation.target?.parentElement || null;
+
+        if (targetElement?.closest?.(TIMETABLE_SCOPE_SELECTOR) || targetElement?.matches?.(TIMETABLE_MUTATION_TARGET_SELECTOR)) {
+            touchesTimetable = true;
+        }
+
+        if (mutation.type !== 'childList') continue;
+
+        mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+
+            collectTimetableEntriesFromNode(node, entrySet);
+
+            if (
+                node.matches(TIMETABLE_STRUCTURE_SELECTOR)
+                || Boolean(node.querySelector?.(TIMETABLE_STRUCTURE_SELECTOR))
+            ) {
+                touchesTimetable = true;
+                hasStructureChange = true;
+            }
+        });
+
+        if (mutation.removedNodes.length > 0 && targetElement?.closest?.(TIMETABLE_SCOPE_SELECTOR)) {
+            touchesTimetable = true;
+            hasStructureChange = true;
+        }
+    }
+
+    return {
+        entries: Array.from(entrySet),
+        touchesTimetable,
+        hasStructureChange
+    };
+}
+
 function getRealTimetableScaffold() {
     return Array.from(document.querySelectorAll('.time-table-scaffold'))
-        .find((el) => !el.closest('#isy-cached-timetable')) || null;
+        .find((el) => !isInsideCachedTimetableOverlay(el)) || null;
 }
 
 function getWeekKeyFromScaffold(scaffold) {
@@ -1281,7 +1349,45 @@ async function clickAndCacheWeek(button, mode = 'change', targetWeekKey = null) 
     }
 }
 
-async function preloadNeighborWeeksInBackground() {
+function getWeekDelta(fromWeekKey, toWeekKey) {
+    const fromDate = parseWeekKey(fromWeekKey);
+    const toDate = parseWeekKey(toWeekKey);
+    if (!fromDate || !toDate) return null;
+
+    const fromUtc = Date.UTC(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+    const toUtc = Date.UTC(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+    const deltaDays = Math.round((toUtc - fromUtc) / 86400000);
+    if (!Number.isFinite(deltaDays)) return null;
+
+    return Math.trunc(deltaDays / 7);
+}
+
+async function navigateTimetableToWeek(targetWeekKey, displayedWeekKey = null) {
+    if (!targetWeekKey) return displayedWeekKey;
+
+    let currentWeekKey = displayedWeekKey || getWeekKeyFromScaffold(getRealTimetableScaffold());
+    if (!currentWeekKey) return currentWeekKey;
+
+    let steps = 0;
+    while (currentWeekKey && currentWeekKey !== targetWeekKey && steps < 30) {
+        if (!shouldShowTimetableOverlay()) return currentWeekKey;
+
+        const weekDelta = getWeekDelta(currentWeekKey, targetWeekKey);
+        const direction = weekDelta === null
+            ? (targetWeekKey < currentWeekKey ? 'previous' : 'next')
+            : (weekDelta < 0 ? 'previous' : 'next');
+
+        const nextWeekKey = await clickAndCacheWeek(getTimetableNavigationButton(direction));
+        if (!nextWeekKey || nextWeekKey === currentWeekKey) break;
+
+        currentWeekKey = nextWeekKey;
+        steps += 1;
+    }
+
+    return currentWeekKey;
+}
+
+async function preloadNeighborWeeksInBackground(anchorWeekKey = null) {
     if (!shouldShowTimetableOverlay()) return;
 
     const initialScaffold = getRealTimetableScaffold();
@@ -1289,49 +1395,66 @@ async function preloadNeighborWeeksInBackground() {
 
     saveScaffoldToWeekCache(initialScaffold);
 
-    const currentWeekKey = getCurrentWeekKey();
     let displayedWeekKey = getWeekKeyFromScaffold(initialScaffold);
+    const targetAnchorWeekKey = anchorWeekKey || displayedWeekKey;
+    if (!targetAnchorWeekKey) return;
 
-    if (displayedWeekKey !== currentWeekKey) {
-        displayedWeekKey = await clickAndCacheWeek(getTimetableCurrentWeekButton(), 'target', currentWeekKey);
-    }
+    displayedWeekKey = await navigateTimetableToWeek(targetAnchorWeekKey, displayedWeekKey);
 
     for (let i = 0; i < PRELOAD_PREVIOUS_WEEKS; i += 1) {
         if (!shouldShowTimetableOverlay()) return;
-        displayedWeekKey = await clickAndCacheWeek(getTimetableNavigationButton('previous'));
+
+        const nextWeekKey = await clickAndCacheWeek(getTimetableNavigationButton('previous'));
+        if (!nextWeekKey || nextWeekKey === displayedWeekKey) break;
+
+        displayedWeekKey = nextWeekKey;
     }
 
-    displayedWeekKey = await clickAndCacheWeek(getTimetableCurrentWeekButton(), 'target', currentWeekKey);
+    displayedWeekKey = await navigateTimetableToWeek(targetAnchorWeekKey, displayedWeekKey);
 
     for (let i = 0; i < PRELOAD_NEXT_WEEKS; i += 1) {
         if (!shouldShowTimetableOverlay()) return;
-        displayedWeekKey = await clickAndCacheWeek(getTimetableNavigationButton('next'));
+
+        const nextWeekKey = await clickAndCacheWeek(getTimetableNavigationButton('next'));
+        if (!nextWeekKey || nextWeekKey === displayedWeekKey) break;
+
+        displayedWeekKey = nextWeekKey;
     }
 
-    if (displayedWeekKey !== currentWeekKey) {
-        await clickAndCacheWeek(getTimetableCurrentWeekButton(), 'target', currentWeekKey);
-    }
+    await navigateTimetableToWeek(targetAnchorWeekKey, displayedWeekKey);
 }
 
 function startBackgroundWeekPreloadIfReady() {
-    if (hasStartedPreloadInThisPage || timetablePreloadPromise) return;
+    if (timetablePreloadPromise) return;
     if (!shouldShowTimetableOverlay()) return;
 
     const scaffold = getRealTimetableScaffold();
     if (!scaffold) return;
-    if (!getWeekKeyFromScaffold(scaffold)) return;
 
-    if (!getTimetableCurrentWeekButton()) return;
+    const anchorWeekKey = getWeekKeyFromScaffold(scaffold);
+    if (!anchorWeekKey) return;
+    if (anchorWeekKey === activePreloadAnchorWeekKey) return;
+    if (anchorWeekKey === lastPreloadedAnchorWeekKey) return;
+
     if (!getTimetableNavigationButton('previous')) return;
     if (!getTimetableNavigationButton('next')) return;
 
-    hasStartedPreloadInThisPage = true;
-    timetablePreloadPromise = preloadNeighborWeeksInBackground()
+    activePreloadAnchorWeekKey = anchorWeekKey;
+    timetablePreloadPromise = preloadNeighborWeeksInBackground(anchorWeekKey)
+        .then(() => {
+            lastPreloadedAnchorWeekKey = anchorWeekKey;
+        })
         .catch((error) => {
             console.warn('Isy Modernizer: Week preloading failed.', error);
         })
         .finally(() => {
             timetablePreloadPromise = null;
+            activePreloadAnchorWeekKey = null;
+
+            // If user moved weeks while preload was running, start another preload for the latest week.
+            window.setTimeout(() => {
+                startBackgroundWeekPreloadIfReady();
+            }, 0);
         });
 }
 
@@ -1349,9 +1472,9 @@ function applyCachedTimetable() {
 
     // Don't show cache if real content is already here
     // Exclude our own overlay from this check.
-    const allItems = document.querySelectorAll('.calendar-week-element-inner');
+    const allItems = document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR);
     for (const item of allItems) {
-        if (!item.closest('#isy-cached-timetable')) {
+        if (!isInsideCachedTimetableOverlay(item)) {
             console.log("Isy Modernizer: Real content already present, skipping cache.");
             return;
         }
@@ -1377,32 +1500,36 @@ function startTimetableObserver() {
     let lastOverlayAttemptAt = 0;
     let mutationDebounceTimeout = null;
     let saveCacheTimeout = null;
+    const pendingMutations = [];
 
-    const processTimetableMutation = () => {
-        if (mutationDebounceTimeout) {
-            window.clearTimeout(mutationDebounceTimeout);
-            mutationDebounceTimeout = null;
-        }
-
+    const processTimetableMutation = (mutations = []) => {
         if (!isArthasModeEnabled()) {
             removeCachedTimetableOverlay();
             return;
         }
 
+        const mutationInfo = collectTimetableMutationInfo(mutations);
+        const urlChanged = window.location.href !== currentUrl;
+        if (urlChanged) {
+            currentUrl = window.location.href;
+            console.log("Isy Modernizer: Navigated to", currentUrl);
+        }
+
         decorateFooter();
 
         const overlay = document.getElementById('isy-cached-timetable');
+        let hasOverlay = Boolean(overlay);
+        const canShowOverlay = shouldShowTimetableOverlay();
 
         // Safety: if we are no longer on a view where cache should appear, remove immediately.
-        if (overlay && !shouldShowTimetableOverlay()) {
+        if (overlay && !canShowOverlay) {
             removeCachedTimetableOverlay();
+            hasOverlay = false;
         }
 
         // 1. Detect SPA Navigation
-        if (window.location.href !== currentUrl) {
-            currentUrl = window.location.href;
-            console.log("Isy Modernizer: Navigated to", currentUrl);
-            if (shouldShowTimetableOverlay()) {
+        if (urlChanged) {
+            if (canShowOverlay) {
                 applyCachedTimetable();
             } else {
                 // If we left timetable, remove overlay immediately
@@ -1410,21 +1537,40 @@ function startTimetableObserver() {
             }
         }
 
-        const needsTimetableChecks = shouldShowTimetableOverlay() || !!overlay;
+        const needsTimetableChecks = canShowOverlay || hasOverlay;
+        if (!needsTimetableChecks) return;
+
+        if (
+            !urlChanged
+            && !hasOverlay
+            && !mutationInfo.touchesTimetable
+            && mutationInfo.entries.length === 0
+            && !mutationInfo.hasStructureChange
+        ) {
+            return;
+        }
+
+        const shouldRunFullScan = urlChanged
+            || mutationInfo.hasStructureChange
+            || (mutationInfo.touchesTimetable && mutationInfo.entries.length === 0);
+
         let realItems = [];
         let realScaffold = null;
 
-        if (needsTimetableChecks) {
-            // 2. Check for Real Content Load
-            // Important: Filter out elements that are inside our cache overlay!
-            realItems = Array.from(document.querySelectorAll('.calendar-week-element-inner'))
-                .filter((el) => !el.closest('#isy-cached-timetable'));
+        if (shouldRunFullScan) {
+            realItems = Array.from(document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR))
+                .filter((el) => !isInsideCachedTimetableOverlay(el));
             realScaffold = getRealTimetableScaffold();
+        } else {
+            realItems = mutationInfo.entries;
+            if (hasOverlay || mutationInfo.touchesTimetable) {
+                realScaffold = getRealTimetableScaffold();
+            }
         }
 
         // When re-opening the site, the first cache attempt can happen before the timetable mount exists.
         // Retry once the timetable shell appears, before the network data arrives.
-        if (!overlay && shouldShowTimetableOverlay() && hasRealTimetableScaffoldOrMount() && realItems.length === 0) {
+        if (shouldRunFullScan && !hasOverlay && canShowOverlay && hasRealTimetableScaffoldOrMount() && realItems.length === 0) {
             const now = Date.now();
             if ((now - lastOverlayAttemptAt) > 300) {
                 lastOverlayAttemptAt = now;
@@ -1438,8 +1584,9 @@ function startTimetableObserver() {
 
         // Remove the overlay only when the real scaffold matches the overlay week.
         // This keeps cached content visible during week switches and offline mode.
-        if (overlay && realScaffold) {
-            const overlayWeekKey = overlay.dataset.weekKey || null;
+        if (hasOverlay && realScaffold) {
+            const currentOverlay = document.getElementById('isy-cached-timetable');
+            const overlayWeekKey = currentOverlay?.dataset?.weekKey || null;
             const realWeekKey = getWeekKeyFromScaffold(realScaffold);
             if (!overlayWeekKey || !realWeekKey || overlayWeekKey === realWeekKey) {
                 removeCachedTimetableOverlay();
@@ -1451,7 +1598,7 @@ function startTimetableObserver() {
         }
 
         // 3. Update Cache (Debounced)
-        if (realScaffold && shouldShowTimetableOverlay()) {
+        if (realScaffold && canShowOverlay) {
             ensureTimetableNavigationOverlayHandlers();
 
             if (!saveCacheTimeout) {
@@ -1471,9 +1618,20 @@ function startTimetableObserver() {
         }
     };
 
-    const observer = new MutationObserver(() => {
+    const scheduleMutationProcessing = () => {
         if (mutationDebounceTimeout) return;
-        mutationDebounceTimeout = window.setTimeout(processTimetableMutation, 120);
+        mutationDebounceTimeout = window.setTimeout(() => {
+            mutationDebounceTimeout = null;
+            const batchedMutations = pendingMutations.splice(0, pendingMutations.length);
+            processTimetableMutation(batchedMutations);
+        }, 90);
+    };
+
+    const observer = new MutationObserver((mutations) => {
+        if (mutations.length > 0) {
+            pendingMutations.push(...mutations);
+        }
+        scheduleMutationProcessing();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -1486,7 +1644,8 @@ function startTimetableObserver() {
         }
 
         if (window.location.href !== currentUrl) {
-            currentUrl = window.location.href;
+            scheduleMutationProcessing();
+            return;
         }
 
         if (!shouldShowTimetableOverlay()) {
@@ -1506,7 +1665,7 @@ function initializeArthasFeatures() {
         // Defer initial timetable decoration until after current render tick.
         window.setTimeout(() => {
             if (!isArthasModeEnabled()) return;
-            applyTimetableClasses(Array.from(document.querySelectorAll('.calendar-week-element-inner')));
+            applyTimetableClasses(Array.from(document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR)));
         }, 0);
 
         ensureTimetablePastRefresh();

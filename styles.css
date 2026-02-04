@@ -971,7 +971,7 @@ body,
 /* 11. Footer */
 .footer,
 .footer.isy-footer-themed {
-    background: linear-gradient(160deg, rgba(8, 16, 32, 0.96), rgba(18, 36, 68, 0.95)) !important;
+    background: linear-gradient(150deg, #02040a 0%, #040816 35%, #0b1630 72%, #122346 100%) !important;
     border-top: 1px solid var(--isy-border-subtle) !important;
     color: var(--isy-text-dark) !important;
     box-shadow: 0 -10px 22px -18px rgba(0, 0, 0, 0.95) !important;
@@ -1028,12 +1028,28 @@ body,
     transition: opacity 0.3s ease;
 }
 
-/* Person profile detail view */
-[data-v-cab99d68],
-[data-v-cab99d68].bg-background,
-[data-v-cab99d68] .bg-background {
-    background-color: var(--isy-panel-bg) !important;
+/* Person profile detail view: keep one unified surface */
+[data-v-cab99d68] {
     color: var(--isy-text-dark) !important;
+}
+
+[data-v-cab99d68].w-full.h-full.relative.bg-background {
+    background: linear-gradient(180deg, rgba(8, 14, 26, 0.94), rgba(8, 14, 26, 0.94)) !important;
+    border: 1px solid var(--isy-border-subtle) !important;
+    border-radius: var(--isy-radius-lg) !important;
+    overflow: hidden !important;
+}
+
+[data-v-cab99d68].w-full.h-full.relative.bg-background > [data-v-cab99d68].absolute.bg-background {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+[data-v-cab99d68].w-full.h-full.relative.bg-background .person-metadata-container,
+[data-v-cab99d68].w-full.h-full.relative.bg-background .pd-row,
+[data-v-cab99d68].w-full.h-full.relative.bg-background [data-v-cab99d68].bg-background {
+    background: transparent !important;
+    background-color: transparent !important;
 }
 
 [data-v-cab99d68] a {
@@ -1727,4 +1743,68 @@ body.ArthasMod-enabled .header-bottom {
 body.ArthasMod-enabled .header-bottom {
     border-bottom: 1px solid rgba(96, 136, 196, 0.32) !important;
     box-shadow: 0 1px 0 rgba(132, 170, 228, 0.16), 0 8px 18px -16px rgba(88, 132, 196, 0.55) !important;
+}
+
+
+/* People detail mini-tab row: transparent buttons, consistent size + alignment */
+body.ArthasMod-enabled .flex.print\:hidden:has(> a > button.seamless.noLabel[data-v-fe6f1f85]),
+body.ArthasMod-enabled .flex.print\:hidden:has(> div > button.seamless.noLabel[data-v-fe6f1f85]) {
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
+
+body.ArthasMod-enabled .flex.print\:hidden > a:has(> button.seamless.noLabel[data-v-fe6f1f85]),
+body.ArthasMod-enabled .flex.print\:hidden > div:has(> button.seamless.noLabel[data-v-fe6f1f85]) {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 2.7rem !important;
+}
+
+body.ArthasMod-enabled .flex.print\:hidden > a > button.seamless.noLabel[data-v-fe6f1f85],
+body.ArthasMod-enabled .flex.print\:hidden > div > button.seamless.noLabel[data-v-fe6f1f85] {
+    width: 2.7rem !important;
+    min-width: 2.7rem !important;
+    height: 2.7rem !important;
+    min-height: 2.7rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 1px solid transparent !important;
+    border-radius: 10px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+body.ArthasMod-enabled .flex.print\:hidden > a > button.seamless.noLabel[data-v-fe6f1f85] .icon,
+body.ArthasMod-enabled .flex.print\:hidden > div > button.seamless.noLabel[data-v-fe6f1f85] .icon,
+body.ArthasMod-enabled .flex.print\:hidden > a > button.seamless.noLabel[data-v-fe6f1f85] i.isy,
+body.ArthasMod-enabled .flex.print\:hidden > div > button.seamless.noLabel[data-v-fe6f1f85] i.isy,
+body.ArthasMod-enabled .flex.print\:hidden > a > button.seamless.noLabel[data-v-fe6f1f85] svg,
+body.ArthasMod-enabled .flex.print\:hidden > div > button.seamless.noLabel[data-v-fe6f1f85] svg {
+    width: 1.35rem !important;
+    height: 1.35rem !important;
+    min-width: 1.35rem !important;
+    min-height: 1.35rem !important;
+    line-height: 1 !important;
+    font-size: 1.35rem !important;
+    margin: 0 !important;
+}
+
+
+/* Fallback without :has for profile detail tab row */
+body.ArthasMod-enabled [data-v-cab99d68] .flex.print\:hidden {
+    align-items: center !important;
+    gap: 0.35rem !important;
+}
+
+body.ArthasMod-enabled [data-v-cab99d68] .flex.print\:hidden > a,
+body.ArthasMod-enabled [data-v-cab99d68] .flex.print\:hidden > div {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 2.7rem !important;
 }

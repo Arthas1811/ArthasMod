@@ -7,24 +7,34 @@
     const CACHE_STORE_KEY = 'arthas-week-graphql-cache-v1';
     const CACHE_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
     const CACHE_MAX_ENTRIES = 240;
-    const PRELOAD_PREVIOUS_WEEKS = 2;
-    const PRELOAD_NEXT_WEEKS = 3;
+    const PRELOAD_PREVIOUS_WEEKS = 5;
+    const PRELOAD_NEXT_WEEKS = 5;
 
     const TARGET_OPERATIONS = new Set([
         'getAppointmentsByPerson',
         'fetchAgendaEntriesInRangeByPerson',
+        'fetchAppointmentRangeByPerson',
+        'fetchAppointmentRangeByTags',
+        'fetchAppointmentsForDayForPerson',
         'getTodosByPerson',
+        'getAbsencesByPerson',
+        'getLeavesByPerson',
+        'getOccupiedAppointmentsInRange',
         'getCurrentPeriod',
         'getPreviousPeriod',
         'getNextPeriod',
-        'getPeriod'
+        'getPeriod',
+        'getPeriodDetail',
+        'getPeriodExceptions'
     ]);
 
     const PERIOD_OPERATIONS = new Set([
         'getCurrentPeriod',
         'getPreviousPeriod',
         'getNextPeriod',
-        'getPeriod'
+        'getPeriod',
+        'getPeriodDetail',
+        'getPeriodExceptions'
     ]);
 
     const revalidationInFlight = new Set();
@@ -81,6 +91,11 @@
         if (Number.isNaN(date.getTime())) return null;
 
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function normalizeDateString(value) {
+        const parsed = parseDate(value);
+        return parsed ? formatWeekKey(parsed) : value;
     }
 
     function getIsoWeekStart(date) {
@@ -167,7 +182,63 @@
             }
         }
 
+        if (variables.withinDateRange && typeof variables.withinDateRange === 'object') {
+            const parsed = parseDate(variables.withinDateRange.start) || parseDate(variables.withinDateRange.end);
+            if (parsed) {
+                return formatWeekKey(getIsoWeekStart(parsed));
+            }
+        }
+
+        const queue = [variables];
+        let steps = 0;
+        while (queue.length > 0 && steps < 96) {
+            steps += 1;
+            const current = queue.shift();
+            if (!current || typeof current !== 'object') continue;
+
+            const nestedCandidates = [
+                current.start,
+                current.from,
+                current.end,
+                current.to,
+                current.now,
+                current.date
+            ];
+
+            for (const candidate of nestedCandidates) {
+                const parsed = parseDate(candidate);
+                if (parsed) {
+                    return formatWeekKey(getIsoWeekStart(parsed));
+                }
+            }
+
+            if (Array.isArray(current)) {
+                for (const item of current) {
+                    if (item && typeof item === 'object') queue.push(item);
+                }
+                continue;
+            }
+
+            for (const value of Object.values(current)) {
+                if (value && typeof value === 'object') queue.push(value);
+            }
+        }
+
         return null;
+    }
+
+    function normalizeVariablesForKey(operationName, variables) {
+        if (!variables || typeof variables !== 'object' || Array.isArray(variables)) {
+            return {};
+        }
+
+        const normalized = { ...variables };
+
+        if (PERIOD_OPERATIONS.has(operationName) && typeof normalized.now === 'string') {
+            normalized.now = normalizeDateString(normalized.now);
+        }
+
+        return normalized;
     }
 
     function inferOperationName(payload) {
@@ -195,21 +266,27 @@
 
     function parseGraphqlBody(bodyText) {
         const parsed = safeJsonParse(bodyText);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-        if (isMutation(parsed)) return null;
+        if (!parsed || typeof parsed !== 'object') return null;
 
-        const operationName = inferOperationName(parsed);
+        const payload = Array.isArray(parsed)
+            ? (parsed.length === 1 && parsed[0] && typeof parsed[0] === 'object' ? parsed[0] : null)
+            : parsed;
+        if (!payload) return null;
+        if (isMutation(payload)) return null;
+
+        const operationName = inferOperationName(payload);
         if (!TARGET_OPERATIONS.has(operationName)) return null;
 
-        const variables = parsed.variables && typeof parsed.variables === 'object' && !Array.isArray(parsed.variables)
-            ? parsed.variables
+        const variables = payload.variables && typeof payload.variables === 'object' && !Array.isArray(payload.variables)
+            ? payload.variables
             : {};
+        const normalizedVariables = normalizeVariablesForKey(operationName, variables);
 
-        const keySource = `${operationName}|${stableStringify(variables)}`;
+        const keySource = `${operationName}|${stableStringify(normalizedVariables)}`;
         return {
             operationName,
-            variables,
-            weekKey: extractWeekKey(variables),
+            variables: normalizedVariables,
+            weekKey: extractWeekKey(normalizedVariables),
             keySource,
             key: hashString(keySource)
         };
@@ -258,7 +335,6 @@
 
     function pruneStore(store) {
         const now = Date.now();
-        const allowedWeeks = getAllowedWeekKeys();
 
         const kept = Object.entries(store.entries || {})
             .filter(([, entry]) => {
@@ -266,10 +342,6 @@
                 if (typeof entry.body !== 'string') return false;
                 if (typeof entry.updatedAt !== 'number') return false;
                 if ((now - entry.updatedAt) > CACHE_MAX_AGE_MS) return false;
-
-                if (entry.weekKey && !allowedWeeks.has(entry.weekKey)) {
-                    return PERIOD_OPERATIONS.has(entry.operationName);
-                }
 
                 return true;
             })
@@ -369,6 +441,73 @@
         return buffer;
     }
 
+    function responseHeadersStringToObject(rawHeaders) {
+        if (!rawHeaders || typeof rawHeaders !== 'string') {
+            return { 'content-type': 'application/json' };
+        }
+
+        const headers = {};
+        const lines = rawHeaders.split(/\r?\n/);
+        for (const line of lines) {
+            const separator = line.indexOf(':');
+            if (separator < 0) continue;
+
+            const key = line.slice(0, separator).trim();
+            if (!key) continue;
+
+            headers[key] = line.slice(separator + 1).trim();
+        }
+
+        if (!headers['content-type'] && !headers['Content-Type']) {
+            headers['content-type'] = 'application/json';
+        }
+
+        return headers;
+    }
+
+    function getFetchUrl(input) {
+        if (typeof input === 'string') return input;
+        if (input instanceof URL) return input.toString();
+        if (input && typeof input === 'object' && typeof input.url === 'string') return input.url;
+        return '';
+    }
+
+    function getFetchMethod(input, init) {
+        const isRequest = typeof Request !== 'undefined' && input instanceof Request;
+        const method = init?.method || (isRequest ? input.method : 'GET');
+        return String(method || 'GET').toUpperCase();
+    }
+
+    function getFetchHeadersMap(input, init) {
+        const isRequest = typeof Request !== 'undefined' && input instanceof Request;
+        const requestHeaders = isRequest ? toHeaderMap(input.headers) : {};
+        const initHeaders = toHeaderMap(init?.headers);
+        return {
+            ...requestHeaders,
+            ...initHeaders
+        };
+    }
+
+    async function getFetchBodyText(input, init) {
+        const initBody = init && Object.prototype.hasOwnProperty.call(init, 'body')
+            ? init.body
+            : undefined;
+        let body = initBody !== undefined ? initBody : null;
+
+        const isRequest = typeof Request !== 'undefined' && input instanceof Request;
+        if (body === null && isRequest) {
+            try {
+                body = await input.clone().text();
+            } catch {
+                body = null;
+            }
+        }
+
+        if (typeof body === 'string') return body;
+        if (body instanceof URLSearchParams) return body.toString();
+        return null;
+    }
+
     function revalidateInBackground(url, bodyText, headersMap, meta) {
         if (!nativeFetch || !meta || revalidationInFlight.has(meta.key)) return;
 
@@ -407,6 +546,69 @@
             .finally(() => {
                 revalidationInFlight.delete(meta.key);
             });
+    }
+
+    if (nativeFetch) {
+        try {
+            window.fetch = async function patchedFetch(input, init) {
+                const url = getFetchUrl(input);
+                const method = getFetchMethod(input, init);
+
+                if (!isGraphqlRequest(url, method)) {
+                    return nativeFetch(input, init);
+                }
+
+                const bodyText = await getFetchBodyText(input, init);
+                if (!bodyText) {
+                    return nativeFetch(input, init);
+                }
+
+                const meta = parseGraphqlBody(bodyText);
+                if (!meta) {
+                    return nativeFetch(input, init);
+                }
+
+                const headersMap = getFetchHeadersMap(input, init);
+                const cached = getCachedEntry(meta);
+                if (cached) {
+                    revalidateInBackground(url, bodyText, headersMap, meta);
+
+                    return new Response(cached.body, {
+                        status: Number.isFinite(cached.status) ? cached.status : 200,
+                        statusText: cached.statusText || 'OK',
+                        headers: responseHeadersStringToObject(
+                            cached.responseHeaders || 'content-type: application/json\r\n'
+                        )
+                    });
+                }
+
+                const response = await nativeFetch(input, init);
+                try {
+                    if (response.ok) {
+                        response.clone().text()
+                            .then((text) => {
+                                if (typeof text !== 'string' || text.length === 0) return;
+                                storeResponse(
+                                    meta,
+                                    text,
+                                    response.status,
+                                    response.statusText || 'OK',
+                                    responseHeadersToString(response.headers)
+                                );
+                            })
+                            .catch(() => {
+                                // Ignore cache write errors.
+                            });
+                    }
+                } catch {
+                    // Ignore cache write errors.
+                }
+
+                return response;
+            };
+        } catch {
+            // Ignore if browser does not allow patching fetch.
+        }
     }
 
     function dispatchCachedEvents(xhr) {
