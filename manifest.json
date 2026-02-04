@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "ArthasMod",
     "version": "1.0",
-    "description": "A modern costume for isy.ksr.ch made by Arthas1811",
+    "description": "Backend optimizations and bugfixes for isy.ksr.ch made by Arthas1811",
     "host_permissions": [
         "*://isy.ksr.ch/*",
         "*://isy-api.ksr.ch/*",
@@ -31,16 +31,6 @@
             ],
             "js": [
                 "content.js"
-            ]
-        }
-    ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "styles.css"
-            ],
-            "matches": [
-                "*://isy.ksr.ch/*"
             ]
         }
     ]

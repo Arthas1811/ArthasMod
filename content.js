@@ -1,4 +1,4 @@
-console.log("ArthasMod: Costume Applied!");
+console.log("ArthasMod: Changes Applied!");
 
 const ARTHAS_THEME_MODE_KEY = 'arthasmod-theme-mode';
 const ARTHAS_THEME_MODE = {
@@ -175,7 +175,7 @@ function removeArthasTimetableClasses() {
 }
 
 function isArthasModeEnabled() {
-    return arthasModeEnabled;
+    return true;
 }
 
 function applyArthasModeStateToDom(enabled) {
@@ -189,6 +189,28 @@ function applyArthasModeStateToDom(enabled) {
         removeCachedTimetableOverlay();
         removeArthasTimetableClasses();
     }
+}
+
+function disableThemeAssets() {
+    if (document.body) {
+        document.body.classList.remove('ArthasMod-enabled');
+    }
+
+    findArthasExtensionStylesheets().forEach((sheet) => {
+        try {
+            sheet.disabled = true;
+        } catch {
+            // Ignore stylesheet disable failures.
+        }
+
+        const owner = sheet?.ownerNode;
+        if (owner && 'disabled' in owner) {
+            owner.disabled = true;
+        }
+    });
+
+    document.getElementById(ARTHAS_STYLESHEET_ID)?.remove();
+    removeArthasFooterDecorations();
 }
 
 // Optional: Add a subtle entry animation trigger for elements that load later
@@ -400,20 +422,8 @@ function applyPastLessonClasses(entries) {
 }
 
 function applyTimetableClasses(entries) {
-    if (!isArthasModeEnabled()) return;
-
-    const safeEntries = Array.isArray(entries)
-        ? entries.filter((entry) => entry && typeof entry.closest === 'function')
-        : [];
-
-    if (safeEntries.length === 0) return;
-
-    try {
-        applyTimetableSpecialCaseClasses(safeEntries);
-        applyPastLessonClasses(safeEntries);
-    } catch (error) {
-        console.warn('Isy Modernizer: applyTimetableClasses failed.', error);
-    }
+    // Theme-specific class decoration disabled in default-style branch.
+    void entries;
 }
 
 function applyTimetableSpecialCaseClasses(entries) {
@@ -501,18 +511,8 @@ function applyTimetableSpecialCaseClasses(entries) {
 
 let timetablePastRefreshInterval = null;
 function ensureTimetablePastRefresh() {
-    if (timetablePastRefreshInterval !== null) return;
-
-    timetablePastRefreshInterval = window.setInterval(() => {
-        if (!isArthasModeEnabled()) return;
-        if (!window.location.href.includes('timetable')) return;
-
-        const realItems = Array.from(document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR))
-            .filter((el) => !isInsideCachedTimetableOverlay(el));
-        if (realItems.length > 0) {
-            applyPastLessonClasses(realItems);
-        }
-    }, 60000);
+    // Theme-specific lesson-state refresh disabled in default-style branch.
+    void timetablePastRefreshInterval;
 }
 
 
@@ -566,21 +566,15 @@ function hasRealTimetableScaffoldOrMount() {
 }
 
 function decorateFooter() {
-    if (!isArthasModeEnabled()) {
-        removeArthasFooterDecorations();
-        return;
-    }
-
     const footer = document.querySelector('.footer');
     if (!footer) return;
-
-    footer.classList.add('isy-footer-themed');
 
     const rightArea = footer.querySelector('.w-36.text-right') || footer.lastElementChild;
     if (!rightArea) return;
 
-    if (!rightArea.querySelector('.arthasmod-version')) {
-        const versionEl = document.createElement('a');
+    let versionEl = rightArea.querySelector('.arthasmod-version');
+    if (!versionEl) {
+        versionEl = document.createElement('a');
         versionEl.className = 'arthasmod-version';
         versionEl.href = 'https://github.com/Arthas1811';
         versionEl.target = '_blank';
@@ -588,6 +582,11 @@ function decorateFooter() {
         versionEl.textContent = `ArthasMod v.${EXTENSION_VERSION}`;
         rightArea.prepend(versionEl);
     }
+
+    const root = document.documentElement;
+    const isDarkMode = root.classList.contains('dark')
+        || String(root.getAttribute('theme') || '').toLowerCase() === 'dark';
+    versionEl.style.color = isDarkMode ? '#ffffff': '';
 }
 
 
@@ -1662,14 +1661,7 @@ function initializeArthasFeatures() {
         applyCachedTimetable();
         startTimetableObserver();
 
-        // Defer initial timetable decoration until after current render tick.
-        window.setTimeout(() => {
-            if (!isArthasModeEnabled()) return;
-            applyTimetableClasses(Array.from(document.querySelectorAll(TIMETABLE_ENTRY_SELECTOR)));
-        }, 0);
-
         ensureTimetablePastRefresh();
-        chrome.runtime.sendMessage({ action: 'SYNC_THEME' });
     } catch (error) {
         console.warn('Isy Modernizer: initializeArthasFeatures failed.', error);
     }
@@ -1681,21 +1673,12 @@ function initializeThemeMode() {
 }
 
 function bootstrapArthasMod() {
+    disableThemeAssets();
     ensureBaseAbsenceTableFixStyles();
-    ensureArthasLessonBrightnessStyle();
-
-    if (!arthasModeObserverStarted) {
-        arthasModeObserverStarted = true;
-        startArthasModeOptionObserver();
-    }
-
-    if (isArthasModeEnabled()) {
-        initializeArthasFeatures();
-    }
+    initializeArthasFeatures();
 }
 
 // Initialize
-initializeThemeMode();
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrapArthasMod);
 } else {
