@@ -38,8 +38,8 @@ html.dark {
     --font-color-inverse-passive: #212d47;
     --primary-color: var(--isy-primary);
     --primary-color-dark: var(--isy-primary);
-    --primary-contrast: #1d2b42;
     --primary-secondary-color: #173e78;
+    --primary-contrast: #1d2b42;
     --primary-weak-color: rgba(47, 94, 169, 0.18);
     --primary-passive-color: #4575bf;
     --primary-passive-color-background: rgba(47, 94, 169, 0.32);
@@ -1841,4 +1841,44 @@ body.ArthasMod-enabled .tippy-box[data-theme~="isy"] .tippy-content {
 
 body.ArthasMod-enabled .tippy-box[data-theme~="isy"] > .tippy-arrow {
     color: rgba(11, 20, 37, 0.98) !important;
+}
+
+/*Fixes for Mobile Version*/
+[data-v-e69c0a82].bg-primaryColor.rounded-full {
+    border-radius: 10px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+a.rounded-full.border-primaryColor.bg-primaryWeakColor,
+a.rounded-full.border-primaryColor.dark\:bg-primarySecondaryColor {
+    border-radius: 10px !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: 1px solid rgba(76, 103, 146, 0.22) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: inline-flex !important;
+}
+
+a.rounded-full.border-primaryColor:hover {
+    background: var(--isy-item-hover-bg) !important;
+    transform: translateY(-1px) !important;
+    border-color: rgba(69, 117, 191, 0.35) !important;
+    box-shadow: var(--isy-shadow-hover) !important;
+}
+
+a.rounded-full.border-primaryColor button {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+div.flex.items-center.bg-backgroundContrast.rounded-full.h-20:has(input.bg-transparent){
+    background: var(--isy-input-bg) !important;
+    border: 1px solid var(--isy-border-subtle) !important;
+    border-radius: 50px !important;
+    transition: all 0.3s ease !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55) !important;
 }

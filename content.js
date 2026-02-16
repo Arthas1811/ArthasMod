@@ -19,7 +19,7 @@ function ensureBaseAbsenceTableFixStyles() {
     const style = document.createElement('style');
     style.id = ABSENCE_TABLE_FIX_STYLE_ID;
     style.textContent = `
-/* Absenz?bersicht: keep table aligned and symbols fitted in all themes */
+/* Absenzübersicht: keep table aligned and symbols fitted in all themes */
 [data-v-0eb0dee1] .grid.grid-flow-col.grid-cols-semesterViewColumn {
     box-sizing: border-box !important;
     grid-template-columns: minmax(12rem, 1.15fr) minmax(2.75rem, 0.45fr) repeat(6, minmax(0, 1fr)) !important;
