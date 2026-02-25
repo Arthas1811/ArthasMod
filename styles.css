@@ -6,8 +6,12 @@
 html.dark {
     --isy-primary: #2f5ea9;
     --isy-primary-glow: rgba(47, 94, 169, 0.32);
-    --isy-bg-gradient: linear-gradient(150deg, #02040a 0%, #040816 35%, #0b1630 72%, #122346 100%);
-    --isy-card-bg: rgba(7, 11, 22, 0.9);
+    --arthas-surface-bg: linear-gradient(135deg, #030814 0%, #0a1529 45%, #0d2140 100%);
+    --isy-bg-gradient: var(--arthas-surface-bg);
+    --isy-card-bg: var(--arthas-surface-bg);
+    --isy-panel-bg: var(--arthas-surface-bg);
+    --isy-header-bg: var(--arthas-surface-bg);
+    --isy-input-bg: var(--arthas-surface-bg);
     --isy-text-dark: #dbe7ff;
     --isy-text-light: #8ea4c5;
     --isy-radius-lg: 20px;
@@ -17,10 +21,7 @@ html.dark {
     --glass-border: 1px solid rgba(72, 93, 126, 0.16);
     --isy-border-subtle: rgba(70, 92, 126, 0.13);
     --backdrop-blur: blur(12px);
-    --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
-    --isy-input-bg: rgba(9, 13, 25, 0.8);
-    --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
-    --isy-panel-bg: rgba(10, 14, 26, 0.86);
+    --isy-item-hover-bg: rgba(78, 133, 220, 0.18);
     --isy-timetable-card-border: rgba(109, 154, 225, 0.34);
     --isy-timetable-card-bg: linear-gradient(145deg, rgba(9, 18, 36, 0.97), rgba(22, 44, 84, 0.94));
     --isy-timetable-card-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.95);
@@ -28,10 +29,10 @@ html.dark {
     --isy-indicator-glow: rgba(98, 153, 238, 0.35);
 
     /* Align original ISY vars from style_original.css with the same dark palette */
-    --background: #060a14;
-    --background-contrast: #0d1526;
-    --background-contrast-hover: #15203a;
-    --background-primary-weak: #0e1627;
+    --background: #0c2e6d;
+    --background-contrast: #123b82;
+    --background-contrast-hover: #1b55b3;
+    --background-primary-weak: #0f3a7a;
     --font-color: var(--isy-text-dark);
     --font-passive: var(--isy-text-light);
     --font-color-inverse: #02040a;
@@ -56,12 +57,12 @@ html.dark {
     --tt-appointment-registration: #264f86;
     --tt-room-reserved-open: #273955;
     --tt-appointment-manually-created-muted: #343d61;
-    --raw-dark-background: #060a14;
-    --raw-dark-background-contrast: #0d1526;
-    --raw-dark-background-contrast-hover: #15203a;
-    --raw-white-background: #060a14;
-    --raw-white-background-contrast: #0d1526;
-    --raw-white-background-contrast-hover: #15203a;
+    --raw-dark-background: #0c2e6d;
+    --raw-dark-background-contrast: #123b82;
+    --raw-dark-background-contrast-hover: #1b55b3;
+    --raw-white-background: #0c2e6d;
+    --raw-white-background-contrast: #123b82;
+    --raw-white-background-contrast-hover: #1b55b3;
     --raw-font-color-black: #dbe7ff;
     --raw-font-color-black-passive: #8ea4c5;
     --raw-font-color-white: #dbe7ff;
@@ -76,31 +77,33 @@ html.dark {
 
 /* Dark Mode Overrides (Explicit Class) */
 html.dark {
-    --isy-bg-gradient: linear-gradient(150deg, #02040a 0%, #040816 35%, #0b1630 72%, #122346 100%);
-    --isy-card-bg: rgba(7, 11, 22, 0.9);
+    --isy-bg-gradient: var(--arthas-surface-bg);
+    --isy-card-bg: var(--arthas-surface-bg);
+    --isy-panel-bg: var(--arthas-surface-bg);
+    --isy-header-bg: var(--arthas-surface-bg);
+    --isy-input-bg: var(--arthas-surface-bg);
     --isy-text-dark: #dbe7ff;
     --isy-text-light: #8ea4c5;
     --glass-border: 1px solid rgba(72, 93, 126, 0.16);
     --isy-shadow-sm: 0 12px 30px -20px rgba(0, 0, 0, 0.9);
     --isy-shadow-hover: 0 18px 35px -18px rgba(16, 44, 94, 0.95), 0 14px 24px -14px rgba(0, 0, 0, 0.92);
-    --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
-    --isy-input-bg: rgba(9, 13, 25, 0.8);
-    --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
+    --isy-item-hover-bg: rgba(78, 133, 220, 0.18);
 }
 
 /* Dark Mode Overrides (System Preference) */
 @media (prefers-color-scheme: dark) {
     :root {
-        --isy-bg-gradient: linear-gradient(150deg, #02040a 0%, #040816 35%, #0b1630 72%, #122346 100%);
-        --isy-card-bg: rgba(7, 11, 22, 0.9);
+        --isy-bg-gradient: var(--arthas-surface-bg);
+        --isy-card-bg: var(--arthas-surface-bg);
+        --isy-panel-bg: var(--arthas-surface-bg);
+        --isy-header-bg: var(--arthas-surface-bg);
+        --isy-input-bg: var(--arthas-surface-bg);
         --isy-text-dark: #dbe7ff;
         --isy-text-light: #8ea4c5;
         --glass-border: 1px solid rgba(72, 93, 126, 0.16);
         --isy-shadow-sm: 0 12px 30px -20px rgba(0, 0, 0, 0.9);
         --isy-shadow-hover: 0 18px 35px -18px rgba(16, 44, 94, 0.95), 0 14px 24px -14px rgba(0, 0, 0, 0.92);
-        --isy-header-bg: linear-gradient(180deg, rgba(8, 16, 34, 0.95), rgba(9, 19, 39, 0.90));
-        --isy-input-bg: rgba(9, 13, 25, 0.8);
-        --isy-item-hover-bg: rgba(45, 83, 150, 0.18);
+        --isy-item-hover-bg: rgba(78, 133, 220, 0.18);
     }
 }
 
@@ -120,8 +123,8 @@ body {
     border-bottom: var(--glass-border) !important;
     border-left: var(--glass-border) !important;
     border-right: var(--glass-border) !important;
-    border-bottom-left-radius: 14px !important;
-    border-bottom-right-radius: 14px !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
     box-shadow: var(--isy-shadow-sm) !important;
     margin-bottom: 16px !important;
     position: sticky !important;
@@ -585,10 +588,11 @@ body {
 
 .calendar-week-element-inner:hover {
     transform: scale(1.02) !important;
-    z-index: 10 !important;
+    z-index: 200 !important;
     box-shadow: var(--isy-tt-entry-hover-shadow, var(--isy-timetable-card-hover-shadow)) !important;
     cursor: pointer !important;
 }
+
 
 .calendar-week-element-inner::after {
     content: '' !important;
@@ -815,23 +819,39 @@ textarea:focus-visible {
 
 /* 9. Timetable Styling */
 .time-table-scaffold {
-    background: linear-gradient(180deg, rgba(4, 9, 20, 0.9), rgba(10, 22, 44, 0.88)) !important;
+    background: var(--isy-bg-gradient) !important;
+    border: none !important;
+}
+
+.day-hour-container,
+.time-background,
+.time-strip-container,
+.time-strip,
+.time-line-container,
+.day-container,
+.calendar-week-day,
+.calendar-week-day .cwd-body {
+    background: transparent !important;
     border: none !important;
 }
 
 .calendar-week-day-header {
-    background: var(--isy-panel-bg) !important;
-    backdrop-filter: var(--backdrop-blur) !important;
-    border-bottom: var(--glass-border) !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
     color: var(--isy-text-dark) !important;
 }
 
+.calendar-week-day-header + .calendar-week-day-header {
+    border-left: none !important;
+}
+
 .calendar-week-day-header.today {
-    background: linear-gradient(160deg, rgba(52, 96, 170, 0.32), rgba(26, 54, 104, 0.38)) !important;
-    border: 1px solid rgba(126, 171, 238, 0.45) !important;
-    border-bottom-color: rgba(126, 171, 238, 0.45) !important;
-    border-radius: 10px !important;
-    box-shadow: 0 8px 16px -12px rgba(39, 78, 146, 0.9) !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
 
 .calendar-week-day-header.today .cwd-header-label > span,
@@ -904,8 +924,6 @@ body,
 .calendarlist__wrapper,
 .calendarlist__list,
 .actionbar,
-.message-display .message-body,
-.message-display .message-container .message-body-container .message-body,
 .form-container,
 .calendar-element,
 .notification,
@@ -915,12 +933,22 @@ body,
 .day-all-column,
 .day-view-scaffold,
 .time-background {
-    background-color: var(--isy-panel-bg) !important;
+    background: var(--isy-bg-gradient) !important;
+    border-color: var(--isy-border-subtle) !important;
+}
+
+/* Message view: keep the scrollable body on card surface so it matches the panel */
+.message-display,
+.message-display-body,
+.message-display .message-body-container,
+.message-display .message-body,
+.message-display .message-container .message-body-container .message-body {
+    background: var(--isy-card-bg) !important;
     border-color: var(--isy-border-subtle) !important;
 }
 
 .popup-container {
-    background: rgba(2, 4, 10, 0.78) !important;
+    background: var(--isy-panel-bg) !important;
 }
 
 .notification {
@@ -938,18 +966,30 @@ body,
 }
 
 .message-old-school-form-body form {
-    background-color: var(--isy-card-bg) !important;
+    background: var(--isy-card-bg) !important;
     border-color: var(--isy-border-subtle) !important;
 }
 
+.day-all-container,
 .day-all-wrapper {
-    border-top-color: var(--isy-border-subtle) !important;
-    border-bottom-color: var(--isy-border-subtle) !important;
+    background: var(--isy-bg-gradient) !important;
+    border: none !important;
 }
 
 .day-all-column {
-    border-left-width: 0.5px !important;
-    border-left-color: var(--isy-border-subtle) !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.day-all-column .cwd-body {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Hide the cached overlay's all-day row to avoid a duplicate bar when jumping to "today"/current week */
+#isy-cached-timetable .day-all-container,
+#isy-cached-timetable .day-all-wrapper {
+    display: none !important;
 }
 
 .day-view-scaffold::before {
@@ -971,7 +1011,7 @@ body,
 /* 11. Footer */
 .footer,
 .footer.isy-footer-themed {
-    background: linear-gradient(150deg, #02040a 0%, #040816 35%, #0b1630 72%, #122346 100%) !important;
+    background: var(--isy-bg-gradient) !important;
     border-top: 1px solid var(--isy-border-subtle) !important;
     color: var(--isy-text-dark) !important;
     box-shadow: 0 -10px 22px -18px rgba(0, 0, 0, 0.95) !important;
@@ -1034,7 +1074,7 @@ body,
 }
 
 [data-v-cab99d68].w-full.h-full.relative.bg-background {
-    background: linear-gradient(180deg, rgba(8, 14, 26, 0.94), rgba(8, 14, 26, 0.94)) !important;
+    background: var(--isy-panel-bg) !important;
     border: 1px solid var(--isy-border-subtle) !important;
     border-radius: var(--isy-radius-lg) !important;
     overflow: hidden !important;
@@ -1362,7 +1402,7 @@ body.ArthasMod-enabled .icon-button,
 body.ArthasMod-enabled .seamless,
 body.ArthasMod-enabled button,
 body.ArthasMod-enabled [role="button"] {
-    background: linear-gradient(145deg, rgba(14, 24, 44, 0.94), rgba(24, 42, 74, 0.92)) !important;
+    background: var(--isy-panel-bg) !important;
     border-color: rgba(76, 103, 146, 0.22) !important;
     color: var(--isy-text-dark) !important;
 }
@@ -1372,7 +1412,7 @@ body.ArthasMod-enabled select,
 body.ArthasMod-enabled textarea,
 body.ArthasMod-enabled .text-input,
 body.ArthasMod-enabled .range-slider {
-    background: rgba(10, 16, 30, 0.88) !important;
+    background: var(--isy-input-bg) !important;
     border-color: rgba(76, 103, 146, 0.20) !important;
     color: var(--isy-text-dark) !important;
 }
@@ -1385,7 +1425,7 @@ body.ArthasMod-enabled .calendar-element,
 body.ArthasMod-enabled .calendarlist__wrapper,
 body.ArthasMod-enabled .calendarlist__list,
 body.ArthasMod-enabled .side-slide-container {
-    background: linear-gradient(160deg, rgba(8, 14, 28, 0.96), rgba(16, 30, 56, 0.94)) !important;
+    background: var(--isy-panel-bg) !important;
     border-color: rgba(76, 103, 146, 0.20) !important;
     color: var(--isy-text-dark) !important;
 }
@@ -1741,16 +1781,17 @@ body.ArthasMod-enabled .priority__circle.circle--filled-exception[data-v-83289ac
 /* Remove gap under top header block */
 body.ArthasMod-enabled .header {
     margin-bottom: 0 !important;
+    border-radius: 0 !important;
 }
 
 
 /* Split header and timetable menu with distinct gradients */
 body.ArthasMod-enabled .header-top {
-    background: linear-gradient(180deg, rgba(7, 17, 34, 0.97), rgba(10, 22, 44, 0.93)) !important;
+    background: var(--isy-header-bg) !important;
 }
 
 body.ArthasMod-enabled .header-bottom {
-    background: linear-gradient(180deg, rgba(11, 26, 50, 0.96), rgba(14, 32, 58, 0.93)) !important;
+    background: var(--isy-panel-bg) !important;
     border-top: 1px solid rgba(66, 93, 132, 0.24) !important;
     border-bottom: 1px solid rgba(55, 82, 119, 0.20) !important;
 }
@@ -1881,4 +1922,74 @@ div.flex.items-center.bg-backgroundContrast.rounded-full.h-20:has(input.bg-trans
     border-radius: 50px !important;
     transition: all 0.3s ease !important;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ArthasMod: Update controls in settings */
+.arthasmod-update-control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.arthasmod-button {
+    background: linear-gradient(135deg, var(--primary-color, #4f46e5), #2d6df6);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    padding: 0.45rem 0.9rem;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: none;
+    transition: transform 140ms ease, opacity 120ms ease;
+    cursor: pointer;
+}
+
+.arthasmod-button:hover {
+    transform: translateY(-1px);
+}
+
+.arthasmod-button:active {
+    transform: translateY(0);
+}
+
+.arthasmod-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.arthasmod-button.ghost {
+    background: transparent;
+    color: var(--primary-color, #4f46e5);
+    border: 1px solid rgba(79, 70, 229, 0.4);
+    box-shadow: none;
+}
+
+.arthasmod-button.ghost:hover {
+    background: rgba(79, 70, 229, 0.1);
+}
+
+.arthasmod-update-status {
+    color: var(--text-muted, #9ca3af);
+    font-size: 0.95rem;
+    min-height: 1.1em;
+}
+
+.arthasmod-update-status[data-tone="ok"] {
+    color: #22c55e;
+}
+
+.arthasmod-update-status[data-tone="info"] {
+    color: #3b82f6;
+}
+
+.arthasmod-update-status[data-tone="warn"] {
+    color: #f59e0b;
+}
+
+.arthasmod-update-status[data-tone="error"] {
+    color: #ef4444;
 }

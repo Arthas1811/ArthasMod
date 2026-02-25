@@ -5,7 +5,16 @@ const ARTHAS_THEME_MODE = {
     ISY: 'isy',
     ARTHAS: 'arthas'
 };
-let arthasModeEnabled = true;
+// Seed theme state from the last saved choice so new windows keep the user's style.
+let arthasModeEnabled = (() => {
+    try {
+        const saved = localStorage.getItem(ARTHAS_THEME_MODE_KEY);
+        if (saved === ARTHAS_THEME_MODE.ARTHAS) return true;
+        return false;
+    } catch {
+        return false;
+    }
+})();
 let suppressThemeSelectionHandling = false;
 
 const ABSENCE_TABLE_FIX_STYLE_ID = 'arthasmod-absence-table-fix';
@@ -84,19 +93,49 @@ function ensureBaseAbsenceTableFixStyles() {
     (document.head || document.documentElement).appendChild(style);
 }
 
-function readThemeModePreference() {
+function normalizeThemeModePreference(value) {
+    if (value === ARTHAS_THEME_MODE.ISY) return ARTHAS_THEME_MODE.ISY;
+    if (value === ARTHAS_THEME_MODE.ARTHAS) return ARTHAS_THEME_MODE.ARTHAS;
+    return null;
+}
+
+function readThemeModePreferenceFromLocalStorage() {
     try {
-        const value = localStorage.getItem(ARTHAS_THEME_MODE_KEY);
-        if (value === ARTHAS_THEME_MODE.ISY) return ARTHAS_THEME_MODE.ISY;
-        return ARTHAS_THEME_MODE.ARTHAS;
+        return normalizeThemeModePreference(localStorage.getItem(ARTHAS_THEME_MODE_KEY));
     } catch {
-        return ARTHAS_THEME_MODE.ARTHAS;
+        return null;
+    }
+}
+
+function readThemeModePreferenceFromStorage() {
+    try {
+        if (!chrome?.storage?.local?.get) return Promise.resolve(null);
+        const maybePromise = chrome.storage.local.get(ARTHAS_THEME_MODE_KEY);
+        if (maybePromise && typeof maybePromise.then === 'function') {
+            return maybePromise
+                .then((result) => normalizeThemeModePreference(result?.[ARTHAS_THEME_MODE_KEY]))
+                .catch(() => null);
+        }
+        return new Promise((resolve) => {
+            chrome.storage.local.get(ARTHAS_THEME_MODE_KEY, (result) => {
+                resolve(normalizeThemeModePreference(result?.[ARTHAS_THEME_MODE_KEY]));
+            });
+        });
+    } catch {
+        return Promise.resolve(null);
     }
 }
 
 function writeThemeModePreference(mode) {
+    const normalized = normalizeThemeModePreference(mode);
+    if (!normalized) return;
     try {
-        localStorage.setItem(ARTHAS_THEME_MODE_KEY, mode);
+        localStorage.setItem(ARTHAS_THEME_MODE_KEY, normalized);
+    } catch {
+        // Ignore persistence errors.
+    }
+    try {
+        chrome?.storage?.local?.set?.({ [ARTHAS_THEME_MODE_KEY]: normalized });
     } catch {
         // Ignore persistence errors.
     }
@@ -147,8 +186,16 @@ function toggleArthasStylesheet(enabled) {
         }
     });
 
-    const injectedNode = ensureArthasStylesheetNode();
-    injectedNode.disabled = !enabled;
+    if (enabled) {
+        const injectedNode = ensureArthasStylesheetNode();
+        injectedNode.disabled = false;
+    } else {
+        const injectedNode = document.getElementById(ARTHAS_STYLESHEET_ID);
+        if (injectedNode) {
+            injectedNode.disabled = true;
+            injectedNode.remove();
+        }
+    }
 }
 
 function removeArthasFooterDecorations() {
@@ -524,6 +571,24 @@ const MAX_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PRELOAD_PREVIOUS_WEEKS = 5;
 const PRELOAD_NEXT_WEEKS = 5;
 const EXTENSION_VERSION = chrome.runtime?.getManifest?.().version || 'dev';
+const UPDATE_RELEASE_URL = 'https://github.com/Arthas1811/ArthasMod';
+const UPDATE_CONTAINER_CLASS = 'arthasmod-update-control';
+const UPDATE_BUTTON_ID = 'arthasmod-update-check';
+const UPDATE_APPLY_BUTTON_ID = 'arthasmod-update-apply';
+const UPDATE_STATUS_ID = 'arthasmod-update-status';
+
+function syncArthasVersionLabels() {
+    const text = `ArthasMod v.${EXTENSION_VERSION}`;
+    const links = Array.from(document.querySelectorAll('.arthasmod-version'));
+    links.forEach((node) => {
+        node.textContent = text;
+        if (node instanceof HTMLAnchorElement) {
+            node.href = 'https://github.com/Arthas1811';
+            node.target = '_blank';
+            node.rel = 'noopener noreferrer';
+        }
+    });
+}
 
 let timetablePreloadPromise = null;
 let activePreloadAnchorWeekKey = null;
@@ -582,12 +647,10 @@ function decorateFooter() {
     if (!rightArea.querySelector('.arthasmod-version')) {
         const versionEl = document.createElement('a');
         versionEl.className = 'arthasmod-version';
-        versionEl.href = 'https://github.com/Arthas1811';
-        versionEl.target = '_blank';
-        versionEl.rel = 'noopener noreferrer';
-        versionEl.textContent = `ArthasMod v.${EXTENSION_VERSION}`;
         rightArea.prepend(versionEl);
     }
+
+    syncArthasVersionLabels();
 }
 
 
@@ -886,14 +949,22 @@ function handleThemeModeSelectionEvent(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
-    if (target.closest('#settingsArthasMode, .arthasmod-theme-option label')) {
-        setArthasModeEnabled(true, true);
+    const displayModeInput = target.closest('input[name="settingsDisplayMode"]');
+    if (displayModeInput) {
+        const wantsArthas = displayModeInput.id === 'settingsArthasMode';
+        setArthasModeEnabled(wantsArthas, true);
         return;
     }
 
-    if (target.closest('#settingsWhiteMode, #settingsDarkMode, label[for="settingsWhiteMode"], label[for="settingsDarkMode"]')) {
-        setArthasModeEnabled(false, true);
-        return;
+    const displayModeLabel = target.closest('label[for]');
+    if (displayModeLabel) {
+        const forId = displayModeLabel.getAttribute('for');
+        const linkedInput = forId ? document.getElementById(forId) : null;
+        if (linkedInput?.name === 'settingsDisplayMode') {
+            const wantsArthas = linkedInput.id === 'settingsArthasMode';
+            setArthasModeEnabled(wantsArthas, true);
+            return;
+        }
     }
 
     if (target.matches('.display-mode-container .range-slider') || target.closest('.display-mode-container .range-slider')) {
@@ -911,6 +982,7 @@ function handleThemeModeSelectionEvent(event) {
 
 function startArthasModeOptionObserver() {
     ensureArthasModeOption();
+    ensureUpdateControl();
 
     document.addEventListener('click', handleThemeModeSelectionEvent, true);
     document.addEventListener('change', handleThemeModeSelectionEvent, true);
@@ -918,6 +990,7 @@ function startArthasModeOptionObserver() {
 
     const modeObserver = new MutationObserver(() => {
         ensureArthasModeOption();
+        ensureUpdateControl();
     });
 
     if (document.body) {
@@ -927,10 +1000,168 @@ function startArthasModeOptionObserver() {
     // Fallback for views that reuse hidden DOM without mutation events.
     window.setInterval(() => {
         ensureArthasModeOption();
+        ensureUpdateControl();
         if (isArthasModeEnabled()) {
             setArthasLessonBrightnessFromSlider(getDisplayModeSlider());
         }
     }, 1000);
+}
+
+function sendRuntimeMessage(payload) {
+    return new Promise((resolve, reject) => {
+        try {
+            chrome.runtime.sendMessage(payload, (response) => {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                    return;
+                }
+                resolve(response);
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+function getDisplaySettingsContainer() {
+    return document.querySelector('.settings-container .display-mode-container')
+        || document.querySelector('.display-mode-container');
+}
+
+function setUpdateStatus(text, tone = 'muted') {
+    const status = document.getElementById(UPDATE_STATUS_ID);
+    if (!status) return;
+    status.textContent = text || '';
+    status.dataset.tone = tone;
+}
+
+function toggleUpdateApplyButton(show) {
+    const applyBtn = document.getElementById(UPDATE_APPLY_BUTTON_ID);
+    if (!applyBtn) return;
+    applyBtn.style.display = show ? '' : 'none';
+    applyBtn.disabled = !show;
+}
+
+function buildUpdateControl() {
+    const wrapper = document.createElement('div');
+    wrapper.className = UPDATE_CONTAINER_CLASS;
+
+    const checkBtn = document.createElement('button');
+    checkBtn.type = 'button';
+    checkBtn.id = UPDATE_BUTTON_ID;
+    checkBtn.className = 'arthasmod-button';
+    checkBtn.textContent = 'Check for updates';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.id = UPDATE_APPLY_BUTTON_ID;
+    applyBtn.className = 'arthasmod-button ghost';
+    applyBtn.textContent = 'Update now';
+    applyBtn.style.display = 'none';
+
+    const status = document.createElement('span');
+    status.id = UPDATE_STATUS_ID;
+    status.className = 'arthasmod-update-status';
+    status.textContent = `Current version: v${EXTENSION_VERSION}`;
+
+    wrapper.append(checkBtn, applyBtn, status);
+    return wrapper;
+}
+
+async function handleApplyUpdateClick(options = {}) {
+    const applyBtn = document.getElementById(UPDATE_APPLY_BUTTON_ID);
+    if (applyBtn) applyBtn.disabled = true;
+    if (!options.skipStatus) {
+        setUpdateStatus('Requesting update…', 'muted');
+    }
+
+    try {
+        const response = await sendRuntimeMessage({ action: 'APPLY_UPDATE' });
+        const status = response?.status || '';
+
+        if (status === 'update_available') {
+            setUpdateStatus('Update downloaded. Reloading extension…', 'ok');
+            window.setTimeout(() => {
+                try {
+                    chrome.runtime.reload();
+                } catch {
+                    window.location.reload();
+                }
+            }, 400);
+        } else if (status === 'no_update') {
+            setUpdateStatus('Already up to date. If you load unpacked, run start-isy.ps1 to pull latest.', 'warn');
+            toggleUpdateApplyButton(false);
+        } else if (status === 'throttled') {
+            setUpdateStatus('Update server throttled—try again later.', 'warn');
+        } else if (response?.ok) {
+            setUpdateStatus('Update request sent.', 'ok');
+        } else {
+            throw new Error(response?.error || 'Update failed.');
+        }
+    } catch (error) {
+        setUpdateStatus(error?.message || 'Update failed.', 'error');
+    } finally {
+        if (applyBtn) applyBtn.disabled = false;
+    }
+}
+
+async function handleUpdateCheckClick() {
+    const checkBtn = document.getElementById(UPDATE_BUTTON_ID);
+    const applyBtn = document.getElementById(UPDATE_APPLY_BUTTON_ID);
+    if (checkBtn) checkBtn.disabled = true;
+    if (applyBtn) applyBtn.disabled = true;
+    setUpdateStatus('Checking for updates…', 'muted');
+
+    try {
+        const response = await sendRuntimeMessage({ action: 'CHECK_UPDATE' });
+        if (!response?.ok) {
+            throw new Error(response?.error || 'Update check failed.');
+        }
+
+        const { currentVersion, latestVersion, hasUpdate } = response;
+        if (hasUpdate && latestVersion) {
+            setUpdateStatus(`Update available: v${currentVersion} → v${latestVersion}. Applying…`, 'info');
+            toggleUpdateApplyButton(true);
+            await handleApplyUpdateClick({ skipStatus: true });
+        } else {
+            toggleUpdateApplyButton(false);
+            setUpdateStatus('You are on the latest version.', 'ok');
+        }
+    } catch (error) {
+        toggleUpdateApplyButton(false);
+        setUpdateStatus(error?.message || 'Update check failed.', 'error');
+    } finally {
+        if (checkBtn) checkBtn.disabled = false;
+        if (applyBtn) applyBtn.disabled = false;
+    }
+}
+
+function bindUpdateControlEvents(wrapper) {
+    const checkBtn = wrapper.querySelector(`#${UPDATE_BUTTON_ID}`);
+    const applyBtn = wrapper.querySelector(`#${UPDATE_APPLY_BUTTON_ID}`);
+
+    if (checkBtn && !checkBtn.dataset.arthasBound) {
+        checkBtn.dataset.arthasBound = '1';
+        checkBtn.addEventListener('click', handleUpdateCheckClick);
+    }
+
+    if (applyBtn && !applyBtn.dataset.arthasBound) {
+        applyBtn.dataset.arthasBound = '1';
+        applyBtn.addEventListener('click', () => handleApplyUpdateClick());
+    }
+}
+
+function ensureUpdateControl() {
+    const container = getDisplaySettingsContainer();
+    if (!container) return;
+
+    let control = container.querySelector(`.${UPDATE_CONTAINER_CLASS}`);
+    if (!control) {
+        control = buildUpdateControl();
+        container.appendChild(control);
+    }
+
+    bindUpdateControlEvents(control);
 }
 
 const TIMETABLE_OVERLAY_SELECTOR = '#isy-cached-timetable';
@@ -1659,6 +1890,7 @@ function initializeArthasFeatures() {
 
     try {
         decorateFooter();
+        syncArthasVersionLabels();
         applyCachedTimetable();
         startTimetableObserver();
 
@@ -1675,9 +1907,19 @@ function initializeArthasFeatures() {
     }
 }
 
-function initializeThemeMode() {
-    const mode = readThemeModePreference();
-    applyArthasModeStateToDom(mode !== ARTHAS_THEME_MODE.ISY);
+async function initializeThemeMode() {
+    const localMode = readThemeModePreferenceFromLocalStorage();
+    const storedMode = await readThemeModePreferenceFromStorage();
+
+    // Prefer the most recently written local value; fall back to extension storage.
+    const resolvedMode = localMode ?? storedMode ?? ARTHAS_THEME_MODE.ISY;
+
+    applyArthasModeStateToDom(resolvedMode === ARTHAS_THEME_MODE.ARTHAS);
+
+    // Keep both storage locations in sync with the resolved choice.
+    if (storedMode !== resolvedMode || localMode !== resolvedMode) {
+        writeThemeModePreference(resolvedMode);
+    }
 }
 
 function bootstrapArthasMod() {
@@ -1695,9 +1937,13 @@ function bootstrapArthasMod() {
 }
 
 // Initialize
-initializeThemeMode();
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootstrapArthasMod);
-} else {
-    bootstrapArthasMod();
+async function startArthasMod() {
+    await initializeThemeMode();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootstrapArthasMod);
+    } else {
+        bootstrapArthasMod();
+    }
 }
+
+startArthasMod();
