@@ -22,6 +22,10 @@ const ARTHAS_BRIGHTNESS_STYLE_ID = 'arthasmod-lesson-brightness-style';
 const ARTHAS_LESSON_BRIGHTNESS_VAR = '--arthas-lesson-brightness';
 const ARTHAS_LESSON_BRIGHTNESS_VALUE_KEY = 'arthasmod-lesson-brightness-value';
 const ARTHAS_BASE_UI_STYLE_ID = 'arthasmod-base-ui-style';
+const UPDATE_CONTAINER_CLASS = 'arthasmod-update-control';
+const UPDATE_BUTTON_ID = 'arthasmod-update-button';
+const UPDATE_APPLY_BUTTON_ID = 'arthasmod-update-apply';
+const UPDATE_STATUS_ID = 'arthasmod-update-status';
 
 function ensureBaseAbsenceTableFixStyles() {
     if (document.getElementById(ABSENCE_TABLE_FIX_STYLE_ID)) return;
@@ -674,11 +678,6 @@ const MAX_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const PRELOAD_PREVIOUS_WEEKS = 5;
 const PRELOAD_NEXT_WEEKS = 5;
 const EXTENSION_VERSION = chrome.runtime?.getManifest?.().version || 'dev';
-const UPDATE_RELEASE_URL = 'https://github.com/Arthas1811/ArthasMod';
-const UPDATE_CONTAINER_CLASS = 'arthasmod-update-control';
-const UPDATE_BUTTON_ID = 'arthasmod-update-check';
-const UPDATE_APPLY_BUTTON_ID = 'arthasmod-update-apply';
-const UPDATE_STATUS_ID = 'arthasmod-update-status';
 
 function syncArthasVersionLabels() {
     const text = `ArthasMod v.${EXTENSION_VERSION}`;
@@ -1082,8 +1081,8 @@ function handleThemeModeSelectionEvent(event) {
 
 function startArthasModeOptionObserver() {
     ensureArthasModeOption();
-    ensureUpdateControl();
     decorateFooter();
+    safeEnsureUpdateControl();
 
     document.addEventListener('click', handleThemeModeSelectionEvent, true);
     document.addEventListener('change', handleThemeModeSelectionEvent, true);
@@ -1091,8 +1090,8 @@ function startArthasModeOptionObserver() {
 
     const modeObserver = new MutationObserver(() => {
         ensureArthasModeOption();
-        ensureUpdateControl();
         decorateFooter();
+        safeEnsureUpdateControl();
     });
 
     if (document.body) {
@@ -1102,8 +1101,8 @@ function startArthasModeOptionObserver() {
     // Fallback for views that reuse hidden DOM without mutation events.
     window.setInterval(() => {
         ensureArthasModeOption();
-        ensureUpdateControl();
         decorateFooter();
+        safeEnsureUpdateControl();
         if (isArthasModeEnabled()) {
             setArthasLessonBrightnessFromSlider(getDisplayModeSlider());
         }
@@ -1175,7 +1174,7 @@ async function handleApplyUpdateClick(options = {}) {
     const applyBtn = document.getElementById(UPDATE_APPLY_BUTTON_ID);
     if (applyBtn) applyBtn.disabled = true;
     if (!options.skipStatus) {
-        setUpdateStatus('Requesting update…', 'muted');
+        setUpdateStatus('Requesting update...', 'muted');
     }
 
     try {
@@ -1183,7 +1182,7 @@ async function handleApplyUpdateClick(options = {}) {
         const status = response?.status || '';
 
         if (status === 'update_available') {
-            setUpdateStatus('Update downloaded. Reloading extension…', 'ok');
+            setUpdateStatus('Update downloaded. Reloading extension...', 'ok');
             window.setTimeout(() => {
                 try {
                     chrome.runtime.reload();
@@ -1192,10 +1191,10 @@ async function handleApplyUpdateClick(options = {}) {
                 }
             }, 400);
         } else if (status === 'no_update') {
-            setUpdateStatus('Already up to date. If you load unpacked, run start-isy.ps1 to pull latest.', 'warn');
+            setUpdateStatus('Already up to date. For unpacked installs, open chrome://extensions and click "Reload" after pulling the latest files.', 'warn');
             toggleUpdateApplyButton(false);
         } else if (status === 'throttled') {
-            setUpdateStatus('Update server throttled—try again later.', 'warn');
+            setUpdateStatus('Update server throttled - try again later.', 'warn');
         } else if (response?.ok) {
             setUpdateStatus('Update request sent.', 'ok');
         } else {
@@ -1213,7 +1212,7 @@ async function handleUpdateCheckClick() {
     const applyBtn = document.getElementById(UPDATE_APPLY_BUTTON_ID);
     if (checkBtn) checkBtn.disabled = true;
     if (applyBtn) applyBtn.disabled = true;
-    setUpdateStatus('Checking for updates…', 'muted');
+    setUpdateStatus('Checking for updates...', 'muted');
 
     try {
         const response = await sendRuntimeMessage({ action: 'CHECK_UPDATE' });
@@ -1223,7 +1222,7 @@ async function handleUpdateCheckClick() {
 
         const { currentVersion, latestVersion, hasUpdate } = response;
         if (hasUpdate && latestVersion) {
-            setUpdateStatus(`Update available: v${currentVersion} → v${latestVersion}. Applying…`, 'info');
+            setUpdateStatus(`Update available: v${currentVersion} -> v${latestVersion}. Applying...`, 'info');
             toggleUpdateApplyButton(true);
             await handleApplyUpdateClick({ skipStatus: true });
         } else {
@@ -1265,6 +1264,14 @@ function ensureUpdateControl() {
     }
 
     bindUpdateControlEvents(control);
+}
+
+function safeEnsureUpdateControl() {
+    try {
+        ensureUpdateControl();
+    } catch (error) {
+        console.warn('ArthasMod: update UI failed to mount.', error);
+    }
 }
 
 const TIMETABLE_OVERLAY_SELECTOR = '#isy-cached-timetable';
@@ -2030,6 +2037,7 @@ function bootstrapArthasMod() {
     ensureBaseUiStyles();
     ensureArthasLessonBrightnessStyle();
     decorateFooter();
+    safeEnsureUpdateControl();
 
     if (!arthasModeObserverStarted) {
         arthasModeObserverStarted = true;
