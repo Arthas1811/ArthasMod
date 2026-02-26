@@ -675,8 +675,9 @@ const TIMETABLE_CACHE_STORE_KEY = 'isy-timetable-week-cache-v2';
 const LEGACY_CACHE_KEY = 'isy-timetable-cache';
 const LEGACY_CACHE_TIMESTAMP_KEY = 'isy-timetable-timestamp';
 const MAX_CACHE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const PRELOAD_PREVIOUS_WEEKS = 5;
-const PRELOAD_NEXT_WEEKS = 5;
+// Background week preloading was causing page hangs for some users; disable for now.
+const PRELOAD_PREVIOUS_WEEKS = 0;
+const PRELOAD_NEXT_WEEKS = 0;
 const EXTENSION_VERSION = chrome.runtime?.getManifest?.().version || 'dev';
 
 function syncArthasVersionLabels() {
@@ -1222,9 +1223,8 @@ async function handleUpdateCheckClick() {
 
         const { currentVersion, latestVersion, hasUpdate } = response;
         if (hasUpdate && latestVersion) {
-            setUpdateStatus(`Update available: v${currentVersion} -> v${latestVersion}. Applying...`, 'info');
-            toggleUpdateApplyButton(true);
-            await handleApplyUpdateClick({ skipStatus: true });
+            setUpdateStatus(`Update available: v${currentVersion} -> v${latestVersion}. Click "Update now" to apply.`, 'info');
+            toggleUpdateApplyButton(true); // user must click the apply button explicitly
         } else {
             toggleUpdateApplyButton(false);
             setUpdateStatus('You are on the latest version.', 'ok');
@@ -1766,6 +1766,7 @@ async function preloadNeighborWeeksInBackground(anchorWeekKey = null) {
 }
 
 function startBackgroundWeekPreloadIfReady() {
+    if (PRELOAD_PREVIOUS_WEEKS === 0 && PRELOAD_NEXT_WEEKS === 0) return;
     if (timetablePreloadPromise) return;
     if (!shouldShowTimetableOverlay()) return;
 
