@@ -24,7 +24,30 @@ function normalizeVersion(value) {
 }
 
 async function fetchLatestVersion() {
-    // Prefer GitHub releases (tags), fall back to manifest.json in main.
+    // Prefer the main branch manifest (source of truth for unpacked installs),
+    // then fall back to the latest GitHub release tag if needed.
+    let manifestError = null;
+
+    try {
+        const manifestResponse = await fetch(GITHUB_MANIFEST_URL, { cache: 'no-store' });
+        if (manifestResponse.ok) {
+            const manifest = await manifestResponse.json();
+            const versionFromManifest = normalizeVersion(manifest?.version);
+            if (versionFromManifest) {
+                return {
+                    version: versionFromManifest,
+                    source: 'manifest-main',
+                    url: GITHUB_MANIFEST_URL
+                };
+            }
+            manifestError = 'Manifest missing version field.';
+        } else {
+            manifestError = `GitHub responded ${manifestResponse.status}`;
+        }
+    } catch (error) {
+        manifestError = error?.message || 'Manifest fetch failed.';
+    }
+
     try {
         const releaseResponse = await fetch(GITHUB_RELEASES_LATEST_URL, { cache: 'no-store' });
         if (releaseResponse.ok) {
@@ -39,20 +62,10 @@ async function fetchLatestVersion() {
             }
         }
     } catch {
-        // Ignore and try manifest.
+        // Ignore; will surface manifest error instead.
     }
 
-    const manifestResponse = await fetch(GITHUB_MANIFEST_URL, { cache: 'no-store' });
-    if (!manifestResponse.ok) {
-        throw new Error(`GitHub responded ${manifestResponse.status}`);
-    }
-    const manifest = await manifestResponse.json();
-    const versionFromManifest = normalizeVersion(manifest?.version);
-    return {
-        version: versionFromManifest || null,
-        source: 'manifest',
-        url: GITHUB_MANIFEST_URL
-    };
+    throw new Error(manifestError || 'Could not determine latest version.');
 }
 
 chrome.runtime.onMessage.addListener((r, s, sendResponse) => {

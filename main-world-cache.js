@@ -9,6 +9,7 @@
     const CACHE_MAX_ENTRIES = 240;
     const PRELOAD_PREVIOUS_WEEKS = 5;
     const PRELOAD_NEXT_WEEKS = 5;
+    const CACHE_SUSPEND_MS = 5 * 60 * 1000;
 
     const TARGET_OPERATIONS = new Set([
         'getAppointmentsByPerson',
@@ -41,6 +42,7 @@
     let storeCache = null;
     let storeDirty = false;
     let saveTimer = null;
+    let cacheSuspendedUntil = 0;
 
     const nativeFetch = typeof window.fetch === 'function'
         ? window.fetch.bind(window)
@@ -151,6 +153,33 @@
         }
 
         return allowed;
+    }
+
+    function isCacheSuspended() {
+        return cacheSuspendedUntil > Date.now();
+    }
+
+    function suspendCache(reason) {
+        cacheSuspendedUntil = Date.now() + CACHE_SUSPEND_MS;
+        if (reason) {
+            try {
+                console.warn('ArthasMod cache suspended', reason);
+            } catch {
+                // Best-effort log only.
+            }
+        }
+    }
+
+    function isCacheAllowedForLocation() {
+        const href = String(window.location?.href || '').toLowerCase();
+        if (!href.includes('timetable')) return false;
+
+        try {
+            const pathname = new URL(window.location.href).pathname.toLowerCase();
+            return /^\/timetable(\/|$)/.test(pathname);
+        } catch {
+            return false;
+        }
     }
 
     function extractWeekKey(variables) {
@@ -382,6 +411,16 @@
         queueStoreSave();
     }
 
+    function evictCacheEntry(meta) {
+        if (!meta) return;
+        const store = loadStore();
+        if (store.entries && Object.prototype.hasOwnProperty.call(store.entries, meta.key)) {
+            delete store.entries[meta.key];
+            storeDirty = true;
+            queueStoreSave();
+        }
+    }
+
     function parseResponseHeaderValue(rawHeaders, headerName) {
         if (!rawHeaders || typeof rawHeaders !== 'string' || !headerName) return null;
 
@@ -508,6 +547,11 @@
         return null;
     }
 
+    function handleUnauthorized(meta, status) {
+        evictCacheEntry(meta);
+        suspendCache(status ? `Auth status ${status}` : 'Auth failure');
+    }
+
     function revalidateInBackground(url, bodyText, headersMap, meta) {
         if (!nativeFetch || !meta || revalidationInFlight.has(meta.key)) return;
 
@@ -527,7 +571,12 @@
             cache: 'no-store'
         })
             .then((response) => {
-                if (!response.ok) return null;
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        handleUnauthorized(meta, response.status);
+                    }
+                    return null;
+                }
                 return response.text().then((text) => ({ response, text }));
             })
             .then((result) => {
@@ -555,6 +604,10 @@
                 const method = getFetchMethod(input, init);
 
                 if (!isGraphqlRequest(url, method)) {
+                    return nativeFetch(input, init);
+                }
+
+                if (isCacheSuspended() || !isCacheAllowedForLocation()) {
                     return nativeFetch(input, init);
                 }
 
@@ -748,7 +801,12 @@
     try {
         xhrProto.send = function patchedSend(body) {
             const requestInfo = this.__arthasRequestInfo;
-            if (!requestInfo || !isGraphqlRequest(requestInfo.url, requestInfo.method)) {
+            if (
+                !requestInfo
+                || !isGraphqlRequest(requestInfo.url, requestInfo.method)
+                || isCacheSuspended()
+                || !isCacheAllowedForLocation()
+            ) {
                 return originalSend.call(this, body);
             }
 
