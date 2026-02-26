@@ -1158,6 +1158,58 @@ body,
     height: clamp(0.68rem, 0.95vw, 0.95rem) !important;
 }
 
+/* Settings: update buttons (base ISY themes) */
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.4rem;
+    padding: 0.48rem 0.95rem;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--primary-color, #4164ff), #2e4ad9) !important;
+    color: #fff !important;
+    border: 1px solid rgba(46, 74, 217, 0.8) !important;
+    box-shadow: none !important;
+    transition: transform 140ms ease, opacity 120ms ease, border-color 140ms ease, background 160ms ease;
+    cursor: pointer;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(46, 74, 217, 0.9) !important;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button:active {
+    transform: translateY(0);
+    opacity: 0.92;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button:focus-visible {
+    outline: 2px solid var(--primary-color, #4164ff);
+    outline-offset: 2px;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+    transform: none;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button.ghost {
+    background: var(--isy-panel-bg, rgba(255, 255, 255, 0.86)) !important;
+    color: var(--primary-color, #4164ff) !important;
+    border: 1px solid rgba(46, 74, 217, 0.38) !important;
+    box-shadow: none !important;
+}
+
+body:not(.ArthasMod-enabled) .settings-container .arthasmod-update-control .arthasmod-button.ghost:hover {
+    background: rgba(65, 100, 255, 0.08) !important;
+}
+
 .footer .arthasmod-version:hover {
     color: #ffffff !important;
     border-color: rgba(186, 217, 255, 0.7) !important;
@@ -1933,43 +1985,91 @@ div.flex.items-center.bg-backgroundContrast.rounded-full.h-20:has(input.bg-trans
     margin-top: 0.75rem;
 }
 
-.arthasmod-button {
-    background: linear-gradient(135deg, var(--primary-color, #4f46e5), #2d6df6);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    padding: 0.45rem 0.9rem;
+/* Default ISY themes: use high-contrast filled buttons */
+.arthasmod-update-control .arthasmod-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.4rem;
+    padding: 0.48rem 0.95rem;
     border-radius: 12px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.01em;
-    box-shadow: none;
-    transition: transform 140ms ease, opacity 120ms ease;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--primary-color, #4164ff), #2e4ad9) !important;
+    color: #fff !important;
+    border: 1px solid rgba(46, 74, 217, 0.8) !important;
+    box-shadow: none !important;
+    transition: transform 140ms ease, opacity 120ms ease, border-color 140ms ease, background 160ms ease;
     cursor: pointer;
 }
 
-.arthasmod-button:hover {
+.arthasmod-update-control .arthasmod-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(46, 74, 217, 0.9) !important;
+}
+
+.arthasmod-update-control .arthasmod-button:active {
+    transform: translateY(0);
+    opacity: 0.92;
+}
+
+.arthasmod-update-control .arthasmod-button:focus-visible {
+    outline: 2px solid var(--primary-color, #4164ff);
+    outline-offset: 2px;
+}
+
+.arthasmod-update-control .arthasmod-button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.arthasmod-update-control .arthasmod-button.ghost {
+    background: var(--isy-panel-bg, rgba(255, 255, 255, 0.86)) !important;
+    color: var(--primary-color, #4164ff) !important;
+    border: 1px solid rgba(46, 74, 217, 0.38) !important;
+    box-shadow: none !important;
+}
+
+.arthasmod-update-control .arthasmod-button.ghost:hover {
+    background: rgba(65, 100, 255, 0.08) !important;
+}
+
+/* ArthasMod theme: revert to the subtler native look */
+body.ArthasMod-enabled .arthasmod-update-control .arthasmod-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.2rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    background: var(--isy-panel-bg, transparent) !important;
+    color: var(--isy-text-dark, #e5e7eb) !important;
+    border: 1px solid rgba(76, 103, 146, 0.22) !important;
+    box-shadow: none !important;
+    transition: transform 140ms ease, opacity 120ms ease, border-color 140ms ease;
+}
+
+body.ArthasMod-enabled .arthasmod-update-control .arthasmod-button:hover {
+    border-color: rgba(76, 117, 191, 0.35) !important;
     transform: translateY(-1px);
 }
 
-.arthasmod-button:active {
+body.ArthasMod-enabled .arthasmod-update-control .arthasmod-button:active {
     transform: translateY(0);
+    opacity: 0.9;
 }
 
-.arthasmod-button:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-}
-
-.arthasmod-button.ghost {
-    background: transparent;
-    color: var(--primary-color, #4f46e5);
-    border: 1px solid rgba(79, 70, 229, 0.4);
-    box-shadow: none;
-}
-
-.arthasmod-button.ghost:hover {
-    background: rgba(79, 70, 229, 0.1);
+body.ArthasMod-enabled .arthasmod-update-control .arthasmod-button.ghost {
+    background: transparent !important;
+    color: var(--isy-text-dark, #e5e7eb) !important;
+    border: 1px solid rgba(76, 103, 146, 0.22) !important;
 }
 
 .arthasmod-update-status {

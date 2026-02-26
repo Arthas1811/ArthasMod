@@ -7,7 +7,7 @@ Usage (double-click) or: powershell -ExecutionPolicy Bypass -File start-isy.ps1
 [CmdletBinding()]
 param(
     [string]$UpdaterPath = (Join-Path -Path $PSScriptRoot -ChildPath "update-arthasmod.ps1"),
-    [string]$InstallDir = "$env:ProgramFiles\\ArthasMod",
+    [string]$InstallDir,
     [string]$Url = "https://isy.ksr.ch/",
     [switch]$VerboseCopy
 )
@@ -17,7 +17,15 @@ try {
         throw "Updater not found at '$UpdaterPath'."
     }
 
-    & "$UpdaterPath" -InstallDir $InstallDir -SkipTaskRegistration -VerboseCopy:$VerboseCopy
+    $updateArgs = @{
+        SkipTaskRegistration = $true
+        VerboseCopy = $VerboseCopy
+    }
+    if ($PSBoundParameters.ContainsKey('InstallDir') -and $InstallDir) {
+        $updateArgs.InstallDir = $InstallDir
+    }
+
+    & "$UpdaterPath" @updateArgs
 }
 catch {
     Write-Warning "Update step failed: $_"

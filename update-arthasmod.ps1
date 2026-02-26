@@ -7,7 +7,7 @@ Run with: powershell -ExecutionPolicy Bypass -File update-arthasmod.ps1
 [CmdletBinding()]
 param(
     [string]$RepoPath = (Split-Path -Parent $PSCommandPath),
-    [string]$InstallDir = "$env:ProgramFiles\\ArthasMod",
+    [string]$InstallDir,
     [string]$Branch = "main",
     [switch]$SkipGitUpdate,
     [switch]$VerboseCopy,
@@ -15,6 +15,8 @@ param(
     [string]$TaskName = "ArthasMod Auto-Update",
     [switch]$SkipTaskRegistration
 )
+
+$InstallCachePath = Join-Path $env:LocalAppData "ArthasMod\\install-dir.txt"
 
 function Require-Tool {
     param([string]$Name)
@@ -37,6 +39,40 @@ function Require-AdminIfNeeded {
     if ($needsAdmin -and -not $isAdmin) {
         throw "Administrator rights required (target path '$TargetPath' or scheduled task). Re-run PowerShell as Administrator."
     }
+}
+
+function Test-ArthasInstall {
+    param([string]$Path)
+    if (-not $Path) { return $false }
+    if (-not (Test-Path $Path)) { return $false }
+
+    $manifest = Join-Path $Path "manifest.json"
+    if (-not (Test-Path $manifest)) { return $false }
+
+    try {
+        $json = Get-Content -Path $manifest -Raw -ErrorAction Stop
+        return $json -match '"name"\s*:\s*"ArthasMod"'
+    }
+    catch {
+        return $false
+    }
+}
+
+function Find-ExistingInstall {
+    param([string[]]$Roots)
+    foreach ($root in $Roots) {
+        if (-not (Test-Path $root)) { continue }
+
+        $rootDepth = ($root -split '[\\/]').Count
+        Get-ChildItem -Path $root -Directory -Recurse -ErrorAction SilentlyContinue | Where-Object {
+            ($_.FullName -split '[\\/]').Count -le ($rootDepth + 2)
+        } | ForEach-Object {
+            if (Test-ArthasInstall -Path $_.FullName) {
+                return $_.FullName
+            }
+        }
+    }
+    return $null
 }
 
 function Update-Repo {
@@ -124,12 +160,44 @@ try {
     Require-Tool -Name "robocopy"
 
     $repo = (Resolve-Path -Path $RepoPath).ProviderPath
-    try {
-        $install = (Resolve-Path -Path $InstallDir -ErrorAction Stop).ProviderPath
-    }
-    catch {
+    $install = $null
+
+    $installArgProvided = $PSBoundParameters.ContainsKey('InstallDir') -and -not [string]::IsNullOrWhiteSpace($InstallDir)
+    if ($installArgProvided) {
         $install = $InstallDir
     }
+
+    if (-not $install -and (Test-Path $InstallCachePath)) {
+        $cached = Get-Content -Path $InstallCachePath -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cached -and (Test-ArthasInstall -Path $cached)) {
+            $install = $cached
+            Write-Host "Detected previous install at $install (cache)."
+        }
+    }
+
+    if (-not $install) {
+        $roots = @(
+            (Join-Path $env:USERPROFILE "Downloads"),
+            (Join-Path $env:USERPROFILE "Desktop"),
+            (Join-Path $env:USERPROFILE "Documents")
+        )
+        $detected = Find-ExistingInstall -Roots $roots
+        if ($detected) {
+            $install = $detected
+            Write-Host "Detected existing install at $install."
+        }
+    }
+
+    if (-not $install) {
+        $install = "$env:ProgramFiles\\ArthasMod"
+        Write-Host "No prior install found; defaulting to $install."
+    }
+
+    if (Test-Path $install) {
+        $install = (Resolve-Path -Path $install).ProviderPath
+    }
+
+    Write-Host "Using install directory: $install"
 
     Require-AdminIfNeeded -TargetPath $install -ForScheduledTask:$RegisterTask
 
@@ -148,6 +216,17 @@ try {
     Mirror-Extension -Source $repo -Destination $install -VerboseCopy:$VerboseCopy
     Write-Host "Extension mirrored to: $install"
     Write-Host "Load (or keep loaded) the unpacked extension from that directory."
+
+    try {
+        $cacheDir = Split-Path -Parent $InstallCachePath
+        if (-not (Test-Path $cacheDir)) {
+            New-Item -ItemType Directory -Path $cacheDir | Out-Null
+        }
+        Set-Content -Path $InstallCachePath -Value $install -Force
+    }
+    catch {
+        Write-Warning "Could not persist install path cache: $_"
+    }
 
     if ($RegisterTask -and -not $SkipTaskRegistration) {
         Register-AutoUpdateTask -ScriptPath $PSCommandPath -InstallDir $install -TaskName $TaskName

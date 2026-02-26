@@ -21,6 +21,7 @@ const ABSENCE_TABLE_FIX_STYLE_ID = 'arthasmod-absence-table-fix';
 const ARTHAS_BRIGHTNESS_STYLE_ID = 'arthasmod-lesson-brightness-style';
 const ARTHAS_LESSON_BRIGHTNESS_VAR = '--arthas-lesson-brightness';
 const ARTHAS_LESSON_BRIGHTNESS_VALUE_KEY = 'arthasmod-lesson-brightness-value';
+const ARTHAS_BASE_UI_STYLE_ID = 'arthasmod-base-ui-style';
 
 function ensureBaseAbsenceTableFixStyles() {
     if (document.getElementById(ABSENCE_TABLE_FIX_STYLE_ID)) return;
@@ -198,11 +199,112 @@ function toggleArthasStylesheet(enabled) {
     }
 }
 
+function ensureBaseUiStyles() {
+    if (document.getElementById(ARTHAS_BASE_UI_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ARTHAS_BASE_UI_STYLE_ID;
+    style.textContent = `
+body:not(.ArthasMod-enabled) .arthasmod-update-control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.4rem;
+    padding: 0.48rem 0.95rem;
+    border-radius: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--primary-color, #4164ff), #2e4ad9) !important;
+    color: #fff !important;
+    border: 1px solid rgba(46, 74, 217, 0.8) !important;
+    box-shadow: none !important;
+    transition: transform 140ms ease, opacity 120ms ease, border-color 140ms ease, background 160ms ease;
+    cursor: pointer;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(46, 74, 217, 0.9) !important;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button:active {
+    transform: translateY(0);
+    opacity: 0.92;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button:focus-visible {
+    outline: 2px solid var(--primary-color, #4164ff);
+    outline-offset: 2px;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+    transform: none;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button.ghost {
+    background: var(--isy-panel-bg, rgba(255, 255, 255, 0.92)) !important;
+    color: var(--primary-color, #4164ff) !important;
+    border: 1px solid rgba(46, 74, 217, 0.38) !important;
+    box-shadow: none !important;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-control .arthasmod-button.ghost:hover {
+    background: rgba(65, 100, 255, 0.08) !important;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-status {
+    color: var(--font-passive, #4b5563);
+    font-size: 0.95rem;
+    min-height: 1.1em;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-update-status[data-tone="ok"] { color: #15803d; }
+body:not(.ArthasMod-enabled) .arthasmod-update-status[data-tone="info"] { color: #1d4ed8; }
+body:not(.ArthasMod-enabled) .arthasmod-update-status[data-tone="warn"] { color: #b45309; }
+body:not(.ArthasMod-enabled) .arthasmod-update-status[data-tone="error"] { color: #b91c1c; }
+
+body:not(.ArthasMod-enabled) .arthasmod-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-right: 0.45rem;
+    padding: 0.24rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(46, 74, 217, 0.22);
+    background: linear-gradient(135deg, rgba(65, 100, 255, 0.15), rgba(46, 74, 217, 0.12));
+    color: var(--font-color, #0f172a);
+    font-size: 0.98rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    text-decoration: none !important;
+}
+
+body:not(.ArthasMod-enabled) .arthasmod-version:hover {
+    border-color: rgba(46, 74, 217, 0.45);
+    background: linear-gradient(135deg, rgba(65, 100, 255, 0.24), rgba(46, 74, 217, 0.18));
+}
+`;
+
+    (document.head || document.documentElement).appendChild(style);
+}
+
 function removeArthasFooterDecorations() {
     const footer = document.querySelector('.footer');
     if (!footer) return;
     footer.classList.remove('isy-footer-themed');
-    footer.querySelectorAll('.arthasmod-version').forEach((el) => el.remove());
 }
 
 function removeArthasTimetableClasses() {
@@ -236,6 +338,7 @@ function applyArthasModeStateToDom(enabled) {
         removeCachedTimetableOverlay();
         removeArthasTimetableClasses();
     }
+    decorateFooter();
 }
 
 // Optional: Add a subtle entry animation trigger for elements that load later
@@ -631,25 +734,22 @@ function hasRealTimetableScaffoldOrMount() {
 }
 
 function decorateFooter() {
-    if (!isArthasModeEnabled()) {
-        removeArthasFooterDecorations();
-        return;
-    }
-
     const footer = document.querySelector('.footer');
     if (!footer) return;
 
-    footer.classList.add('isy-footer-themed');
+    footer.classList.toggle('isy-footer-themed', isArthasModeEnabled());
 
     const rightArea = footer.querySelector('.w-36.text-right') || footer.lastElementChild;
     if (!rightArea) return;
 
-    if (!rightArea.querySelector('.arthasmod-version')) {
-        const versionEl = document.createElement('a');
+    let versionEl = rightArea.querySelector('.arthasmod-version');
+    if (!versionEl) {
+        versionEl = document.createElement('a');
         versionEl.className = 'arthasmod-version';
         rightArea.prepend(versionEl);
     }
 
+    versionEl.dataset.theme = isArthasModeEnabled() ? 'arthas' : 'default';
     syncArthasVersionLabels();
 }
 
@@ -983,6 +1083,7 @@ function handleThemeModeSelectionEvent(event) {
 function startArthasModeOptionObserver() {
     ensureArthasModeOption();
     ensureUpdateControl();
+    decorateFooter();
 
     document.addEventListener('click', handleThemeModeSelectionEvent, true);
     document.addEventListener('change', handleThemeModeSelectionEvent, true);
@@ -991,6 +1092,7 @@ function startArthasModeOptionObserver() {
     const modeObserver = new MutationObserver(() => {
         ensureArthasModeOption();
         ensureUpdateControl();
+        decorateFooter();
     });
 
     if (document.body) {
@@ -1001,6 +1103,7 @@ function startArthasModeOptionObserver() {
     window.setInterval(() => {
         ensureArthasModeOption();
         ensureUpdateControl();
+        decorateFooter();
         if (isArthasModeEnabled()) {
             setArthasLessonBrightnessFromSlider(getDisplayModeSlider());
         }
@@ -1924,7 +2027,9 @@ async function initializeThemeMode() {
 
 function bootstrapArthasMod() {
     ensureBaseAbsenceTableFixStyles();
+    ensureBaseUiStyles();
     ensureArthasLessonBrightnessStyle();
+    decorateFooter();
 
     if (!arthasModeObserverStarted) {
         arthasModeObserverStarted = true;
